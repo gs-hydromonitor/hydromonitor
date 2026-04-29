@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a5c33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HydroMonitor">
+<link rel="manifest" href="manifest.json">
+<title>HydroMonitor</title>
+<style>
+/* ─────────────────────────────────────────
+   TOKENS
+───────────────────────────────────────── */
+:root{
+  --g:    #2d8a4e;
+  --g-dk: #1a5c33;
+  --g-lt: #e8f5ee;
+  --g-ac: #5edb8a;
+  --r:    #c0392b;
+  --r-lt: #fdecea;
+  --b:    #2563eb;
+  --b-lt: #eff6ff;
+  --am:   #d97706;
+  --am-lt:#fef3c7;
+  --gr:   #6b7280;
+  --gr-lt:#f3f4f6;
+  --bd:   #e5e7eb;
+  --tx:   #111827;
+  --tx2:  #6b7280;
+  --bg:   #eef2ee;
+  --card: #ffffff;
+  --hh:   56px;
+  --rad:  14px;
+  --fnt:  'Segoe UI',system-ui,-apple-system,sans-serif;
+  --sh:   0 2px 8px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow-x:hidden;}
+body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
+
+/* ── HEADER ── */
+.hdr{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:var(--hh);background:var(--g-dk);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;box-shadow:0 2px 10px rgba(0,0,0,.25);
+}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo svg{width:24px;height:24px;fill:var(--g-ac);}
+.logo-txt{font-size:17px;font-weight:800;color:#fff;letter-spacing:-.3px;}
+.hdr-r{display:flex;align-items:center;gap:8px;}
+
+/* ── SYNC CHIP ── */
+.sync-chip{
+  font-size:11px;font-weight:600;
+  padding:4px 9px;border-radius:20px;
+  display:none;align-items:center;gap:5px;
+}
+.sync-chip.spin-it{display:flex;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);}
+.sync-chip.ok    {display:flex;background:rgba(94,219,138,.2);color:var(--g-ac);}
+.sync-chip.err   {display:flex;background:rgba(255,100,80,.2);color:#ff9580;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sp{display:inline-block;animation:spin 1s linear infinite;}
+
+/* ── LOGIN BTN ── */
+.btn-lg{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 13px;border-radius:20px;
+  border:1.5px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.1);color:#fff;
+  font-size:13px;font-weight:700;cursor:pointer;
+  transition:all .2s;font-family:var(--fnt);
+}
+.btn-lg.on{background:rgba(94,219,138,.18);border-color:rgba(94,219,138,.45);}
+.btn-lg .dot{width:8px;height:8px;border-radius:50%;background:var(--g-ac);display:none;}
+.btn-lg.on .dot{display:block;}
+.btn-lg:active{transform:scale(.95);}
+
+/* ── MAIN ── */
+.main{padding:calc(var(--hh) + 12px) 13px 96px;}
+
+/* ── OFFLINE BANNER ── */
+.offline-banner{
+  background:var(--am-lt);border:1px solid #fcd34d;
+  border-radius:10px;padding:10px 13px;margin-bottom:12px;
+  font-size:13px;color:#92400e;display:none;
+  align-items:center;gap:8px;
+}
+.offline-banner.show{display:flex;}
+
+/* ── SECTION LABEL ── */
+.sec{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+     color:var(--tx2);margin-bottom:10px;padding-left:2px;}
+
+/* ── RECORD CARDS ── */
+.rc{background:var(--card);border-radius:var(--rad);margin-bottom:10px;
+    overflow:hidden;box-shadow:var(--sh);border:1.5px solid var(--bd);}
+.rc.ag{border-color:#86efac;background:#f4fdf7;}
+.rc.hr{border-color:#fca5a5;background:#fff7f7;}
+.rc-top{padding:11px 13px 8px;display:flex;align-items:center;justify-content:space-between;}
+.rc-date{font-size:14px;font-weight:700;}
+.pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
+.pg{background:var(--g-lt);color:var(--g-dk);}
+.pr{background:var(--r-lt);color:var(--r);}
+.tdots{display:flex;gap:5px;padding:0 13px 9px;flex-wrap:wrap;}
+.td{width:27px;height:27px;border-radius:50%;font-size:11px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;}
+.td.g{background:var(--g-lt);color:var(--g-dk);}
+.td.r{background:var(--r-lt);color:var(--r);}
+.rc-ft{display:flex;align-items:center;gap:8px;padding:8px 13px;border-top:1px solid var(--bd);}
+.sent-lbl{flex:1;font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:5px;}
+.sent-lbl.s{color:var(--g);}
+.bsm{padding:6px 11px;border-radius:8px;border:1px solid var(--bd);
+     font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fnt);
+     background:var(--card);color:var(--tx);transition:all .15s;}
+.bsm:active{transform:scale(.95);}
+.bsm.blue{background:var(--b-lt);color:var(--b);border-color:#bfdbfe;}
+.bsm:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:56px 20px;color:var(--tx2);}
+.empty-ic{font-size:46px;margin-bottom:14px;}
+.empty p{font-size:14px;line-height:1.7;}
+
+/* ── FAB ── */
+.fab{
+  position:fixed;bottom:26px;right:20px;
+  width:56px;height:56px;border-radius:50%;
+  background:var(--g);color:#fff;font-size:28px;border:none;
+  cursor:pointer;box-shadow:0 4px 18px rgba(45,138,78,.5);
+  display:flex;align-items:center;justify-content:center;
+  z-index:200;transition:all .2s;
+}
+.fab:active{transform:scale(.9);}
+.fab:disabled{background:#9ca3af;box-shadow:none;cursor:not-allowed;opacity:.7;}
+
+/* ── OVERLAY ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+    z-index:400;align-items:flex-end;justify-content:center;}
+.ov.on{display:flex;}
+.ov.c{align-items:center;}
+
+/* ── POPUP ── */
+.pp{background:var(--card);border-radius:var(--rad) var(--rad) 0 0;
+    width:100%;max-width:520px;max-height:93vh;overflow-y:auto;
+    padding-bottom:env(safe-area-inset-bottom,16px);}
+.pp.m{border-radius:var(--rad);margin:0 14px;width:calc(100% - 28px);
+      max-height:88vh;max-width:440px;}
+.pp-hd{padding:15px 15px 11px;border-bottom:1px solid var(--bd);
+       display:flex;align-items:center;justify-content:space-between;
+       position:sticky;top:0;background:var(--card);z-index:10;}
+.pp-tit{font-size:16px;font-weight:800;}
+.btn-x{width:30px;height:30px;border-radius:50%;background:var(--gr-lt);
+       border:none;font-size:15px;cursor:pointer;color:var(--gr);
+       display:flex;align-items:center;justify-content:center;}
+
+/* ── NUM BAR ── */
+.nb{display:flex;gap:7px;padding:12px 15px 8px;overflow-x:auto;scrollbar-width:none;}
+.nb::-webkit-scrollbar{display:none;}
+.nbb{min-width:36px;height:36px;border-radius:50%;border:2px solid;
+     font-size:13px;font-weight:700;cursor:pointer;
+     display:flex;align-items:center;justify-content:center;
+     flex-shrink:0;transition:all .15s;font-family:var(--fnt);}
+.nbb.e{background:var(--r-lt);color:var(--r);border-color:#fca5a5;}
+.nbb.f{background:var(--g-lt);color:var(--g-dk);border-color:#86efac;}
+.nbb.act{box-shadow:0 0 0 3px rgba(45,138,78,.3);transform:scale(1.1);}
+
+/* ── FORM ── */
+.fb{padding:0 15px;}
+.fg{margin:9px 0;}
+.fg label{display:block;font-size:11px;font-weight:700;color:var(--tx2);
+          margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;}
+.fg input{width:100%;padding:10px 12px;border:1.5px solid var(--bd);
+          border-radius:9px;font-size:15px;font-family:var(--fnt);
+          background:var(--gr-lt);color:var(--tx);outline:none;transition:border-color .15s;}
+.fg input:focus{border-color:var(--g);background:#fff;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fa{display:flex;gap:10px;padding:14px 15px 0;}
+.fa .btn{flex:1;padding:12px;font-size:14px;font-weight:700;border-radius:10px;
+         border:none;cursor:pointer;font-family:var(--fnt);transition:all .15s;}
+.fa .btn:active{transform:scale(.97);}
+.btn-p{background:var(--g);color:#fff;}
+.btn-d{background:var(--r-lt);color:var(--r);border:1px solid #fca5a5 !important;}
+.btn-s{background:var(--gr-lt);color:var(--tx);border:1px solid var(--bd) !important;}
+.hint{font-size:12px;color:var(--tx2);margin-top:5px;line-height:1.5;}
+
+/* ── DIALOG ── */
+.dlg{background:var(--card);border-radius:var(--rad);padding:22px 18px;
+     margin:0 18px;max-width:340px;width:100%;}
+.dlg h3{font-size:17px;font-weight:800;margin-bottom:8px;}
+.dlg p{font-size:14px;color:var(--tx2);margin-bottom:18px;line-height:1.6;}
+.dlg-row{display:flex;gap:10px;}
+.dlg-row .btn{flex:1;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%);
+       background:#1f2937;color:#fff;padding:10px 20px;border-radius:22px;
+       font-size:13px;font-weight:600;z-index:1000;opacity:0;
+       transition:opacity .3s;pointer-events:none;
+       white-space:nowrap;max-width:90vw;text-align:center;}
+.toast.on{opacity:1;}
+
+/* ── DIVIDER ── */
+.dv{height:1px;background:var(--bd);margin:10px 0;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">
+    <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 19.93A10 10 0 1 0 17 8z"/></svg>
+    <span class="logo-txt">HydroMonitor</span>
+  </div>
+  <div class="hdr-r">
+    <div class="sync-chip" id="syncChip"></div>
+    <button class="btn-lg" id="btnLg" onclick="handleLogin()">
+      <div class="dot"></div>
+      <span id="lgLabel">Login</span>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="offline-banner" id="offlineBanner">
+    📵 <span>Offline — uso ultima configurazione salvata</span>
+  </div>
+  <div class="sec">Rilevazioni salvate</div>
+  <div id="list"></div>
+  <div class="empty" id="emptyState">
+    <div class="empty-ic">📋</div>
+    <p>Nessuna rilevazione.<br>Fai login e tocca <strong>+</strong> per iniziare.</p>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" disabled onclick="openEntry(null)" title="Nuova rilevazione">+</button>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ════════════ OVERLAY LOGIN ════════════ -->
+<div class="ov c" id="ovLg">
+  <div class="pp m">
+    <div class="pp-hd">
+      <span class="pp-tit">🔑 Accesso</span>
+      <button class="btn-x" onclick="closeOv('ovLg')">✕</button>
+    </div>
+    <div class="fb" style="padding-top:12px">
+      <div class="fg"><label>Username</label>
+        <input id="liU" type="text" autocomplete="username" placeholder="Il tuo username">
+      </div>
+      <div class="fg"><label>Password</label>
+        <input id="liP" type="password" autocomplete="current-password" placeholder="Password">
+      </div>
+      <div id="liErr" style="display:none;color:var(--r);font-size:13px;
+           margin-top:6px;padding:9px 11px;background:var(--r-lt);border-radius:8px;">
+        Username o password non corretti.
+      </div>
+    </div>
+    <div class="fa">
+      <button class="btn btn-s" onclick="closeOv('ovLg')">Annulla</button>
+      <button class="btn btn-p" onclick="doLogin()">Accedi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ OVERLAY ENTRY ════════════ -->
+<div class="ov" id="ovEnt">
+  <div class="pp">
+    <div class="pp-hd">
+      <span class="pp-tit" id="entTit">Nuova rilevazione</span>
+      <button class="btn-x" onclick="closeOv('ovEnt')">✕</button>
+    </div>
+    <div class="nb" id="numBar"></div>
+    <div class="fb">
+      <div class="fg"><label>Data</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="fr">
+        <div class="fg"><label>EC OUT</label><input type="number" step="0.01" id="fEcO" placeholder="es. 2.4"></div>
+        <div class="fg"><label>EC IN</label><input type="number" step="0.01" id="fEcI" placeholder="es. 1.8"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>pH OUT</label><input type="number" step="0.01" id="fPhO" placeholder="es. 6.2"></div>
+        <div class="fg"><label>pH IN</label><input type="number" step="0.01" id="fPhI" placeholder="es. 5.8"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>T. IRRIG °C</label><input type="number" step="0.1" id="fTir" placeholder="es. 21.5"></div>
+        <div class="fg"><label>DRAIN</label><input type="number" step="0.01" id="fDrn" placeholder="es. 0.8"></div>
+      </div>
+      <div class="fg"><label>% Drain</label><input type="number" step="0.1" id="fPrc" placeholder="es. 25.5"></div>
+    </div>
+    <div class="fa">
+      <button class="btn btn-d" id="btnDel" onclick="askDel()">🗑 Elimina</button>
+      <button class="btn btn-p" onclick="saveEntry()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ OVERLAY CONFIRM DELETE ════════════ -->
+<div class="ov c" id="ovDel">
+  <div class="dlg">
+    <h3>⚠️ Conferma eliminazione</h3>
+    <p>Stai per eliminare questa rilevazione dal dispositivo. L'operazione non è reversibile.</p>
+    <div class="dlg-row">
+      <button class="btn btn-s" onclick="closeOv('ovDel')">Annulla</button>
+      <button class="btn btn-d" onclick="doDel()">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ OVERLAY OAUTH ════════════ -->
+<div class="ov c" id="ovOA">
+  <div class="dlg">
+    <h3>🔗 Autorizza Google Sheets</h3>
+    <p>Per inviare i dati devi autorizzare l'accesso a Google Sheets una sola volta. Verrai reindirizzato a Google.</p>
+    <div class="dlg-row">
+      <button class="btn btn-s" onclick="closeOv('ovOA')">Annulla</button>
+      <button class="btn btn-p" onclick="startOAuth()">Autorizza →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   ▼ UNICA RIGA DA MODIFICARE PRIMA DI
+     DISTRIBUIRE L'APP
+══════════════════════════════════════════ */
+const CONFIG_URL = 'https://script.google.com/macros/s/INSERISCI-QUI-IL-TUO-URL/exec';
+/* ══════════════════════════════════════════ */
+
+const FIELDS = ['ecO','ecI','phO','phI','tIr','drn','prc'];
+const FIDS   = ['fEcO','fEcI','fPhO','fPhI','fTir','fDrn','fPrc'];
+const FKEYS  = ['ecOut','ecIn','phOut','phIn','tIrrig','drain','perc'];
+const COL_MAP= {'Data':0,'Tab':1,'EC OUT':2,'EC IN':3,'pH OUT':4,'pH IN':5,'T.IRRIG':6,'DRAIN':7,'%':8};
+const SYNC_MS= 24*60*60*1000; // 1 giorno
+
+let cfgCache   = null;   // oggetto config dal server
+let user       = null;   // utente loggato
+let records    = [];
+let editId     = null;
+let curTab     = 1;
+let tempTabs   = {};
+let pendingId  = null;
+
+/* ── LS helpers ── */
+const LS={
+  g:(k)=>{try{return JSON.parse(localStorage.getItem(k));}catch{return null;}},
+  s:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
+  r:(k)=>localStorage.removeItem(k)
+};
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+async function init(){
+  records = LS.g('hm_records') || [];
+
+  // Sessione utente
+  const sess = sessionStorage.getItem('hm_sess');
+  if(sess){ user = JSON.parse(sess); applyLogin(); }
+
+  renderList();
+  checkOnline();
+  window.addEventListener('online',  ()=>{ checkOnline(); triggerSync(); });
+  window.addEventListener('offline', ()=>checkOnline());
+
+  await triggerSync();
+  handleOAuthCb();
+}
+
+function checkOnline(){
+  document.getElementById('offlineBanner').classList.toggle('show', !navigator.onLine);
+}
+
+/* ══════════════════════════════════════════
+   SYNC CONFIG (una volta al giorno)
+══════════════════════════════════════════ */
+async function triggerSync(){
+  const last = LS.g('hm_sync_ts') || 0;
+  const cfg  = LS.g('hm_cfg');
+
+  if(!navigator.onLine){
+    if(cfg){ cfgCache = cfg; return; }
+    showSync('err','📵 Offline — nessuna configurazione');
+    return;
+  }
+
+  if(cfg && (Date.now()-last) < SYNC_MS){
+    cfgCache = cfg; // già aggiornato oggi
+    return;
+  }
+
+  showSync('spin-it','<span class="sp">⟳</span> Sync…');
+  try{
+    const res  = await fetch(CONFIG_URL+'?action=getConfig',{cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    if(!data.users) throw new Error('Formato non valido');
+    cfgCache = data;
+    LS.s('hm_cfg', data);
+    LS.s('hm_sync_ts', Date.now());
+    showSync('ok','✓ Aggiornato');
+    setTimeout(hideSync, 2500);
+
+    // Aggiorna utente in sessione se loggato
+    if(user){
+      const fresh = data.users.find(u=>u.username===user.username);
+      if(fresh){ user=fresh; sessionStorage.setItem('hm_sess',JSON.stringify(fresh)); }
+    }
+  }catch(e){
+    cfgCache = LS.g('hm_cfg');
+    showSync('err','⚠️ Sync fallito');
+    setTimeout(hideSync, 3000);
+  }
+}
+
+function showSync(cls, html){
+  const c=document.getElementById('syncChip');
+  c.className='sync-chip '+cls;
+  c.innerHTML=html;
+}
+function hideSync(){ document.getElementById('syncChip').className='sync-chip'; }
+
+/* ══════════════════════════════════════════
+   LOGIN
+══════════════════════════════════════════ */
+function handleLogin(){
+  if(user){ doLogout(); return; }
+  document.getElementById('liErr').style.display='none';
+  document.getElementById('liU').value='';
+  document.getElementById('liP').value='';
+  openOv('ovLg');
+}
+
+function doLogin(){
+  const u=document.getElementById('liU').value.trim();
+  const p=document.getElementById('liP').value;
+  const cache = cfgCache || LS.g('hm_cfg');
+  if(!cache||!cache.users||!cache.users.length){
+    showToast('⚠️ Configurazione non disponibile');
+    closeOv('ovLg'); return;
+  }
+  const found=cache.users.find(x=>x.username===u && x.password===p);
+  if(found){
+    user=found;
+    sessionStorage.setItem('hm_sess',JSON.stringify(found));
+    applyLogin();
+    closeOv('ovLg');
+    showToast('✅ Benvenuto, '+u+'!');
+    renderList();
+  } else {
+    document.getElementById('liErr').style.display='block';
+  }
+}
+
+function applyLogin(){
+  const btn=document.getElementById('btnLg');
+  btn.classList.add('on');
+  document.getElementById('lgLabel').textContent=user.username;
+  document.getElementById('fab').disabled=false;
+}
+
+function doLogout(){
+  user=null;
+  sessionStorage.removeItem('hm_sess');
+  const btn=document.getElementById('btnLg');
+  btn.classList.remove('on');
+  document.getElementById('lgLabel').textContent='Login';
+  document.getElementById('fab').disabled=true;
+  renderList();
+  showToast('Disconnesso');
+}
+
+/* ══════════════════════════════════════════
+   ENTRY POPUP
+══════════════════════════════════════════ */
+function todayISO(){ return new Date().toISOString().split('T')[0]; }
+
+function openEntry(id){
+  if(!user){ showToast('⚠️ Fai login prima'); return; }
+  editId=id; curTab=1; tempTabs={};
+
+  const n=numTabsForUser();
+  buildNumBar(n);
+
+  if(id){
+    const rec=records.find(r=>r.id===id);
+    document.getElementById('entTit').textContent='Modifica rilevazione';
+    document.getElementById('fDate').value=rec.date||todayISO();
+    curTab=rec.activeTab||1;
+    for(let i=1;i<=n;i++) if(rec.tabs&&rec.tabs[i]) tempTabs[i]={...rec.tabs[i]};
+    document.getElementById('btnDel').style.display='';
+  } else {
+    document.getElementById('entTit').textContent='Nuova rilevazione';
+    document.getElementById('fDate').value=todayISO();
+    document.getElementById('btnDel').style.display='none';
+  }
+
+  loadFields(curTab);
+  refreshBar();
+  setActive(curTab);
+  openOv('ovEnt');
+}
+
+function numTabsForUser(){
+  const n=parseInt(user&&user.numtabs||user&&user.numTabs||5);
+  return Math.min(Math.max(n,1),10);
+}
+
+function buildNumBar(n){
+  const bar=document.getElementById('numBar');
+  bar.innerHTML='';
+  for(let i=1;i<=n;i++){
+    const b=document.createElement('button');
+    b.className='nbb e'; b.id='nb'+i; b.textContent=i;
+    b.onclick=(x=>()=>switchTab(x))(i);
+    bar.appendChild(b);
+  }
+}
+
+function switchTab(idx){
+  saveFields(curTab); curTab=idx;
+  loadFields(idx); refreshBar(); setActive(idx);
+}
+
+function saveFields(idx){
+  tempTabs[idx]={
+    ecOut:v('fEcO'),ecIn:v('fEcI'),
+    phOut:v('fPhO'),phIn:v('fPhI'),
+    tIrrig:v('fTir'),drain:v('fDrn'),perc:v('fPrc')
+  };
+}
+function loadFields(idx){
+  const d=tempTabs[idx]||{};
+  sv('fEcO',d.ecOut);sv('fEcI',d.ecIn);
+  sv('fPhO',d.phOut);sv('fPhI',d.phIn);
+  sv('fTir',d.tIrrig);sv('fDrn',d.drain);sv('fPrc',d.perc);
+}
+const v  =id=>document.getElementById(id).value;
+const sv =(id,val)=>document.getElementById(id).value=val||'';
+
+function isFilled(d){
+  return d && FKEYS.every(k=>d[k]!==''&&d[k]!==undefined&&d[k]!==null);
+}
+function refreshBar(){
+  const n=numTabsForUser();
+  for(let i=1;i<=n;i++){
+    const b=document.getElementById('nb'+i);
+    if(!b)continue;
+    b.classList.remove('f','e');
+    b.classList.add(isFilled(tempTabs[i])?'f':'e');
+  }
+}
+function setActive(idx){
+  const n=numTabsForUser();
+  for(let i=1;i<=n;i++){const b=document.getElementById('nb'+i);if(b)b.classList.remove('act');}
+  const b=document.getElementById('nb'+idx);if(b)b.classList.add('act');
+}
+
+// Live update
+FIDS.forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    saveFields(curTab); refreshBar();
+  });
+});
+
+function saveEntry(){
+  saveFields(curTab);
+  const date=v('fDate');
+  if(!date){showToast('⚠️ Inserisci una data');return;}
+
+  const n=numTabsForUser();
+  const tabs={};
+  for(let i=1;i<=n;i++) if(tempTabs[i]) tabs[i]=tempTabs[i];
+
+  if(editId){
+    const idx=records.findIndex(r=>r.id===editId);
+    if(idx>=0) records[idx]={...records[idx],date,tabs,activeTab:curTab,sent:false};
+  } else {
+    records.push({
+      id:Date.now().toString(),date,tabs,
+      sent:false,activeTab:curTab,
+      username:user.username
+    });
+  }
+  LS.s('hm_records',records);
+  tempTabs={}; closeOv('ovEnt'); renderList();
+  showToast('✅ Salvato in locale');
+}
+
+/* ══════════════════════════════════════════
+   DELETE
+══════════════════════════════════════════ */
+function askDel(){ openOv('ovDel'); }
+function doDel(){
+  records=records.filter(r=>r.id!==editId);
+  LS.s('hm_records',records);
+  closeOv('ovDel'); closeOv('ovEnt'); renderList();
+  showToast('🗑 Eliminata');
+}
+
+/* ══════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════ */
+function renderList(){
+  const list=document.getElementById('list');
+  const emp =document.getElementById('emptyState');
+  const mine=records.filter(r=>!r.username||!user||r.username===user.username);
+
+  if(!mine.length){ list.innerHTML=''; emp.style.display='block'; return; }
+  emp.style.display='none';
+
+  const n=numTabsForUser();
+  const sorted=[...mine].sort((a,b)=>b.date.localeCompare(a.date));
+
+  list.innerHTML=sorted.map(rec=>{
+    let ag=true;
+    const dots=[];
+    for(let i=1;i<=n;i++){
+      const ok=isFilled(rec.tabs&&rec.tabs[i]);
+      if(!ok)ag=false;
+      dots.push(`<div class="td ${ok?'g':'r'}">${i}</div>`);
+    }
+    const pill=ag
+      ?'<span class="pill pg">✓ Completo</span>'
+      :'<span class="pill pr">⚠ Incompleto</span>';
+    const sentLbl=rec.sent
+      ?'<span class="sent-lbl s">✓ Inviato</span>'
+      :'<span class="sent-lbl">Non inviato</span>';
+    return `<div class="rc ${ag?'ag':'hr'}">
+      <div class="rc-top"><div class="rc-date">📅 ${fmtD(rec.date)}</div>${pill}</div>
+      <div class="tdots">${dots.join('')}</div>
+      <div class="rc-ft">
+        ${sentLbl}
+        <button class="bsm" onclick="openEntry('${rec.id}')">✏️ Modifica</button>
+        <button class="bsm blue" onclick="initSend('${rec.id}')" ${rec.sent?'disabled':''}>
+          ${rec.sent?'✓ Inviato':'📤 Invia'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtD(d){
+  if(!d)return '';
+  const[y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`;
+}
+
+/* ══════════════════════════════════════════
+   SEND — OAuth 2.0 implicit + Sheets API
+══════════════════════════════════════════ */
+function initSend(id){
+  if(!user){showToast('⚠️ Fai login prima');return;}
+  if(!navigator.onLine){showToast('📵 Nessuna connessione');return;}
+  pendingId=id;
+  const tok=sessionStorage.getItem('hm_tok');
+  if(!tok){ sessionStorage.setItem('hm_pid',id); openOv('ovOA'); }
+  else doSend(id,tok);
+}
+
+function startOAuth(){
+  if(!user||!user.clientid&&!user.clientId){
+    showToast('⚠️ Client ID non presente nella configurazione');
+    closeOv('ovOA'); return;
+  }
+  const cid=(user.clientid||user.clientId);
+  const redir=location.href.split('#')[0].split('?')[0];
+  const url='https://accounts.google.com/o/oauth2/v2/auth'
+    +'?client_id='+encodeURIComponent(cid)
+    +'&redirect_uri='+encodeURIComponent(redir)
+    +'&response_type=token'
+    +'&scope='+encodeURIComponent('https://www.googleapis.com/auth/spreadsheets')
+    +'&prompt=select_account';
+  location.href=url;
+}
+
+function handleOAuthCb(){
+  const h=location.hash;
+  if(!h.includes('access_token'))return;
+  const p=new URLSearchParams(h.substring(1));
+  const tok=p.get('access_token');
+  if(!tok)return;
+  sessionStorage.setItem('hm_tok',tok);
+  history.replaceState(null,'',location.pathname);
+  showToast('✅ Google autorizzato!');
+  const pid=sessionStorage.getItem('hm_pid');
+  if(pid){ sessionStorage.removeItem('hm_pid'); setTimeout(()=>doSend(pid,tok),700); }
+}
+
+async function doSend(id,tok){
+  const rec=records.find(r=>r.id===id);
+  if(!rec||!user)return;
+
+  const sid=(user.sheetid||user.sheetId||'');
+  const stab=(user.sheettab||user.sheetTab||'');
+  const cols=(user.columns||'Data,Tab,EC OUT,EC IN,pH OUT,pH IN,T.IRRIG,DRAIN,%')
+    .split(',').map(s=>s.trim());
+
+  if(!sid||!stab){showToast('⚠️ sheetId / sheetTab mancanti nel config');return;}
+  showToast('📤 Invio…');
+
+  const n=numTabsForUser();
+  const rows=[];
+  for(let i=1;i<=n;i++){
+    const d=rec.tabs&&rec.tabs[i]?rec.tabs[i]:{};
+    const map={
+      'Data':rec.date,'Tab':i,
+      'EC OUT':d.ecOut||'','EC IN':d.ecIn||'',
+      'pH OUT':d.phOut||'','pH IN':d.phIn||'',
+      'T.IRRIG':d.tIrrig||'','DRAIN':d.drain||'','%':d.perc||''
+    };
+    rows.push(cols.map(c=>map[c]!==undefined?map[c]:''));
+  }
+
+  const rng=encodeURIComponent(stab+'!A1');
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${rng}:append?valueInputOption=USER_ENTERED`;
+
+  try{
+    const res=await fetch(url,{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},
+      body:JSON.stringify({values:rows})
+    });
+    if(res.status===401){
+      sessionStorage.removeItem('hm_tok');
+      sessionStorage.setItem('hm_pid',id);
+      showToast('🔐 Token scaduto — riautorizza');
+      openOv('ovOA'); return;
+    }
+    if(!res.ok){
+      const e=await res.json().catch(()=>({}));
+      showToast('❌ '+(e?.error?.message||'Errore '+res.status)); return;
+    }
+    const idx=records.findIndex(r=>r.id===id);
+    records[idx].sent=true;
+    LS.s('hm_records',records);
+    renderList();
+    showToast('✅ Dati inviati!');
+  }catch(e){
+    showToast('❌ Rete: '+e.message);
+  }
+}
+
+/* ══════════════════════════════════════════
+   OVERLAY HELPERS
+══════════════════════════════════════════ */
+function openOv(id) { document.getElementById(id).classList.add('on'); }
+function closeOv(id){
+  document.getElementById(id).classList.remove('on');
+  if(id==='ovEnt') tempTabs={};
+}
+document.querySelectorAll('.ov').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) closeOv(o.id); });
+});
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2800);
+}
+
+/* ══════════════════════════════════════════
+   SERVICE WORKER
+══════════════════════════════════════════ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+
+/* BOOT */
+init();
+</script>
+</body>
+</html>
