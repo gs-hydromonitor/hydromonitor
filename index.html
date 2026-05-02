@@ -166,15 +166,21 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
         background:none;border:none;cursor:pointer;padding:4px;
         color:var(--tx2);font-size:18px;line-height:1;display:flex;align-items:center;}
 
-/* BOTTONI POPUP */
+/* BOTTONI — unico stile coerente ovunque */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:12px 16px;font-size:14px;font-weight:700;border-radius:10px;
+  cursor:pointer;font-family:var(--fnt);transition:all .15s;
+  -webkit-appearance:none;appearance:none;text-align:center;
+}
+.btn:active{transform:scale(.97);}
+.btn-p{background:var(--g);    color:#fff;       border:2px solid #1a6b3a;}
+.btn-d{background:var(--r-lt); color:var(--r);   border:2px solid #fca5a5;}
+.btn-s{background:var(--gr-lt);color:var(--tx2); border:2px solid var(--bd);}
+/* row contenitore bottoni popup */
 .fa{display:flex;gap:10px;padding:14px 15px 20px;}
-.fa .btn{flex:1;padding:12px 8px;font-size:14px;font-weight:700;border-radius:10px;
-         cursor:pointer;font-family:var(--fnt);transition:all .15s;
-         -webkit-appearance:none;appearance:none;}
-.fa .btn:active{transform:scale(.97);}
-.btn-p{background:var(--g);   color:#fff;      border:2px solid #1a6b3a;}
-.btn-d{background:var(--r-lt);color:var(--r);  border:2px solid #fca5a5;}
-.btn-s{background:var(--gr-lt);color:var(--tx);border:2px solid var(--bd);}
+.fa .btn{flex:1;}
+.dlg-row .btn{flex:1;}
 
 /* DIALOG */
 .dlg{background:var(--card);border-radius:var(--rad);padding:22px 18px;
@@ -182,7 +188,6 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .dlg h3{font-size:17px;font-weight:800;margin-bottom:8px;}
 .dlg p{font-size:14px;color:var(--tx2);margin-bottom:18px;line-height:1.6;}
 .dlg-row{display:flex;gap:10px;}
-.dlg-row .btn{flex:1;}
 
 /* TOAST */
 .toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%);
@@ -275,15 +280,10 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
            padding:9px 11px;background:var(--r-lt);border-radius:8px;border:1px solid #fca5a5;">
         ⚠️ Username o password non corretti.
       </div>
-      <!-- Pulsante logout visibile solo se già loggato -->
-      <div id="logoutRow" style="display:none;margin-top:10px;text-align:center;">
-        <button class="btn btn-d" style="width:100%;padding:10px;" onclick="doLogout()">
-          Esci (logout)
-        </button>
-      </div>
     </div>
-    <div class="fa">
-      <button class="btn btn-s" onclick="closeOv('ovLg')">Annulla</button>
+    <!-- bottoni: Esci (solo se loggato) + Accedi -->
+    <div class="fa" id="lgBtns">
+      <button class="btn btn-d" id="btnLogout" onclick="doLogout()" style="display:none;">🚪 Esci</button>
       <button class="btn btn-p" onclick="doLogin()">Accedi</button>
     </div>
   </div>
@@ -336,7 +336,7 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 /* ═══════════════════════════════════════════════
    ▼▼  UNICA RIGA DA MODIFICARE PRIMA DI CARICARE
 ═══════════════════════════════════════════════ */
-const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbxUB3JbhmkA9sFSpYXWBvnLqrSiXOWDrZ1ZvTTvGFCA-Byaymh7FCZ36gY-cvEnmSeF/exec';
+const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbz0inb_EF1o77tBX7lunWDOfqWwVl1qJ8d-llNVRFc/exec';
 /* ═══════════════════════════════════════════════ */
 
 const FIDS  = ['fEcO','fEcI','fPhO','fPhI','fTir','fDrn','fPrc'];
@@ -443,13 +443,14 @@ function handleLogin(){
   // Apre sempre il popup, mai logout diretto
   document.getElementById('liErr').style.display = 'none';
   document.getElementById('liU').value = user ? user.username : '';
-  document.getElementById('liP').value = '';           // password sempre vuota
-  // Ripristina visibilità password → nascosta
+  document.getElementById('liP').value = '';
+  // Ripristina icona occhio e tipo password
   const inp = document.getElementById('liP');
   inp.type  = 'password';
-  document.getElementById('pwEye').innerHTML = SVG_EYE_ON; document.getElementById('pwEye').style.color='var(--gr)';
-  // Mostra/nascondi bottone logout
-  document.getElementById('logoutRow').style.display = user ? 'block' : 'none';
+  document.getElementById('pwEye').innerHTML = SVG_EYE_ON;
+  document.getElementById('pwEye').style.color = 'var(--gr)';
+  // Mostra Esci solo se già loggato
+  document.getElementById('btnLogout').style.display = user ? '' : 'none';
   openOv('ovLg');
   setTimeout(() => {
     (user ? document.getElementById('liP') : document.getElementById('liU')).focus();
