@@ -188,6 +188,23 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
        transition:opacity .3s;pointer-events:none;
        white-space:nowrap;max-width:90vw;text-align:center;}
 .toast.on{opacity:1;}
+
+/* LOGIN POPUP — sale quando appare la tastiera */
+#ovLg{ align-items:flex-end; transition:none; }
+#ovLg .pp.m{
+  border-radius: var(--rad) var(--rad) 0 0;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  transition: transform .25s ease;
+}
+#ovLg.kb-up{ align-items:flex-start; padding-top: 12px; }
+#ovLg.kb-up .pp.m{
+  border-radius: var(--rad);
+  margin: 0 14px;
+  width: calc(100% - 28px);
+  max-width: 440px;
+}
 </style>
 </head>
 <body>
@@ -224,7 +241,7 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 
 <!-- ══ OVERLAY LOGIN ══ -->
 <div class="ov c" id="ovLg">
-  <div class="pp m">
+  <div class="pp m" id="ppLg">
     <div class="pp-hd">
       <span class="pp-tit">🔑 Accesso</span>
       <button class="btn-x" onclick="closeOv('ovLg')">✕</button>
@@ -232,11 +249,13 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
     <div class="fb" style="padding-top:14px">
       <div class="fg">
         <label>Username</label>
-        <input id="liU" type="text" autocomplete="username" placeholder="Il tuo username">
+        <input id="liU" type="text" autocomplete="username" placeholder="Il tuo username"
+               onfocus="popupUp()" onblur="popupDown()">
       </div>
       <div class="fg">
         <label>Password</label>
-        <input id="liP" type="password" autocomplete="current-password" placeholder="Password">
+        <input id="liP" type="password" autocomplete="current-password" placeholder="Password"
+               onfocus="popupUp()" onblur="popupDown()">
       </div>
       <div id="liErr" style="display:none;color:var(--r);font-size:13px;margin-top:8px;
            padding:9px 11px;background:var(--r-lt);border-radius:8px;border:1px solid #fca5a5;">
@@ -297,7 +316,7 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 /* ════════════════════════════════════════════════════
    ▼▼▼  UNICA RIGA DA MODIFICARE PRIMA DI CARICARE  ▼▼▼
 ════════════════════════════════════════════════════ */
-const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbxUB3JbhmkA9sFSpYXWBvnLqrSiXOWDrZ1ZvTTvGFCA-Byaymh7FCZ36gY-cvEnmSeF/exec';
+const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbz0inb_EF1o77tBX7lunWDOfqWwVl1qJ8d-llNVRFc/exec';
 /* ════════════════════════════════════════════════════ */
 
 const FIDS  = ['fEcO','fEcI','fPhO','fPhI','fTir','fDrn','fPrc'];
@@ -312,7 +331,8 @@ let tempTabs= {};
 
 const LS = {
   g: k => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
-  s: (k,v) => localStorage.setItem(k, JSON.stringify(v))
+  s: (k,v) => localStorage.setItem(k, JSON.stringify(v)),
+  r: k => localStorage.removeItem(k)
 };
 
 /* ════════════════════════════════
@@ -320,8 +340,9 @@ const LS = {
 ════════════════════════════════ */
 async function init(){
   records = LS.g('hm_records') || [];
-  const sess = sessionStorage.getItem('hm_sess');
-  if(sess){ user = JSON.parse(sess); applyLogin(); }
+  // Login persistente: usa localStorage così rimane anche dopo chiusura app
+  const saved = LS.g('hm_user');
+  if(saved){ user = saved; applyLogin(); }
   renderList();
   checkOnline();
   window.addEventListener('online',  () => { checkOnline(); triggerSync(); });
@@ -358,9 +379,7 @@ function jsonpCall(url, timeout){
 
     window[cb] = data => { cleanup(); resolve(data); };
     scr.onerror = () => { cleanup(); resolve({ error: 'network' }); };
-    // Aggiunge callback come parametro — gestisce sia URL con ? che senza
-    const sep = url.includes('?') ? '&' : '?';
-    scr.src = url + sep + 'callback=' + cb;
+    scr.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
     document.head.appendChild(scr);
   });
 }
@@ -379,7 +398,7 @@ async function triggerSync(){
   if(cached && (Date.now() - last) < SYNC_MS) return;
 
   showSync('spin-it', '<span class="sp">⟳</span> Sync config…');
-  const data = await jsonpCall(CONFIG_URL + '?action=getConfig', 12000);
+  const data = await jsonpCall(CONFIG_URL + '?action=getConfig');
 
   if(data && data.users){
     LS.s('hm_cfg', data);
@@ -389,7 +408,7 @@ async function triggerSync(){
     // Aggiorna sessione utente se loggato
     if(user){
       const fresh = data.users.find(u => u.username === user.username);
-      if(fresh){ user = fresh; sessionStorage.setItem('hm_sess', JSON.stringify(fresh)); }
+      if(fresh){ user = fresh; LS.s('hm_user', fresh); }
     }
   } else {
     const msg = data && data.error ? data.error : 'errore sconosciuto';
@@ -410,12 +429,16 @@ function hideSync(){ document.getElementById('syncChip').className = 'sync-chip'
    LOGIN
 ════════════════════════════════ */
 function handleLogin(){
-  if(user){ doLogout(); return; }
+  // Cliccando il bottone (loggato o no) apre sempre il popup di login
   document.getElementById('liErr').style.display = 'none';
-  document.getElementById('liU').value = '';
+  document.getElementById('liU').value = user ? user.username : '';
   document.getElementById('liP').value = '';
   openOv('ovLg');
-  setTimeout(() => document.getElementById('liU').focus(), 200);
+  setTimeout(() => {
+    // Se già loggato, mette il focus sulla password; altrimenti sullo username
+    const f = user ? document.getElementById('liP') : document.getElementById('liU');
+    f.focus();
+  }, 200);
 }
 
 function doLogin(){
@@ -429,7 +452,7 @@ function doLogin(){
   const found = cache.users.find(x => x.username === u && x.password === p);
   if(found){
     user = found;
-    sessionStorage.setItem('hm_sess', JSON.stringify(found));
+    LS.s('hm_user', found);   // persiste anche dopo chiusura app
     applyLogin();
     closeOv('ovLg');
     showToast('✅ Benvenuto, ' + u + '!');
@@ -447,7 +470,7 @@ function applyLogin(){
 
 function doLogout(){
   user = null;
-  sessionStorage.removeItem('hm_sess');
+  LS.r('hm_user');
   document.getElementById('btnLg').classList.remove('on');
   document.getElementById('lgLabel').textContent = 'Login';
   document.getElementById('fab').disabled = true;
@@ -460,35 +483,23 @@ function doLogout(){
 ════════════════════════════════ */
 function todayISO(){ return new Date().toISOString().split('T')[0]; }
 
-// Restituisce array dei tab da mostrare.
-// numtabs nel foglio config può essere:
-//   "1,4,5,6,7" → mostra solo quei numeri specifici
-//   "5"          → mostra tab 1,2,3,4,5 (vecchio comportamento)
-function getTabList(){
-  const raw = String((user && (user.numtabs || user.numTabs)) || '5');
-  if(raw.includes(',')){
-    return raw.split(',')
-      .map(s => parseInt(s.trim()))
-      .filter(n => !isNaN(n) && n >= 1 && n <= 99);
-  }
-  const n = Math.min(Math.max(parseInt(raw) || 5, 1), 10);
-  return Array.from({length: n}, (_, i) => i + 1);
+function numTabsForUser(){
+  const n = parseInt((user && (user.numtabs || user.numTabs)) || 5);
+  return Math.min(Math.max(n, 1), 10);
 }
-function numTabsForUser(){ return getTabList().length; }
 
 function openEntry(id){
   if(!user){ showToast('⚠️ Fai login prima'); return; }
-  editId = id; tempTabs = {};
-  const tabs = getTabList();
-  curTab = tabs[0];
-  buildNumBar();
+  editId = id; curTab = 1; tempTabs = {};
+  const n = numTabsForUser();
+  buildNumBar(n);
 
   if(id){
     const rec = records.find(r => r.id === id);
     document.getElementById('entTit').textContent = 'Modifica rilevazione';
     document.getElementById('fDate').value = rec.date || todayISO();
-    curTab = tabs.includes(rec.activeTab) ? rec.activeTab : tabs[0];
-    tabs.forEach(i => { if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
+    curTab = rec.activeTab || 1;
+    for(let i = 1; i <= n; i++) if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]};
     document.getElementById('btnDel').style.display = '';
   } else {
     document.getElementById('entTit').textContent = 'Nuova rilevazione';
@@ -499,16 +510,15 @@ function openEntry(id){
   openOv('ovEnt');
 }
 
-function buildNumBar(){
-  const bar  = document.getElementById('numBar');
-  const tabs = getTabList();
+function buildNumBar(n){
+  const bar = document.getElementById('numBar');
   bar.innerHTML = '';
-  tabs.forEach(i => {
+  for(let i = 1; i <= n; i++){
     const b = document.createElement('button');
     b.className = 'nbb e'; b.id = 'nb' + i; b.textContent = i;
     b.onclick = (x => () => switchTab(x))(i);
     bar.appendChild(b);
-  });
+  }
 }
 
 function switchTab(idx){
@@ -542,14 +552,16 @@ function isFilled(d){
   return d && FKEYS.every(k => d[k] !== '' && d[k] !== undefined && d[k] !== null);
 }
 function refreshBar(){
-  getTabList().forEach(i => {
-    const b = document.getElementById('nb'+i); if(!b) return;
+  const n = numTabsForUser();
+  for(let i = 1; i <= n; i++){
+    const b = document.getElementById('nb'+i); if(!b) continue;
     b.classList.remove('f','e');
     b.classList.add(isFilled(tempTabs[i]) ? 'f' : 'e');
-  });
+  }
 }
 function setActive(idx){
-  getTabList().forEach(i => { const b=document.getElementById('nb'+i); if(b) b.classList.remove('act'); });
+  const n = numTabsForUser();
+  for(let i = 1; i <= n; i++){ const b=document.getElementById('nb'+i); if(b) b.classList.remove('act'); }
   const b = document.getElementById('nb'+idx); if(b) b.classList.add('act');
 }
 
@@ -561,15 +573,29 @@ function saveEntry(){
   saveFields(curTab);
   const date = document.getElementById('fDate').value;
   if(!date){ showToast('⚠️ Inserisci una data'); return; }
-  const tabs = getTabList();
-  const tabsData = {};
-  tabs.forEach(i => { if(tempTabs[i]) tabsData[i] = tempTabs[i]; });
+
+  // Controlla: esiste già un record per questa data per questo utente?
+  // (solo per nuovi record, non per modifiche)
+  if(!editId){
+    const duplicate = records.find(r =>
+      r.username === user.username && r.date === date
+    );
+    if(duplicate){
+      showToast('⚠️ Esiste già una rilevazione per oggi — modificala');
+      closeOv('ovEnt');
+      return;
+    }
+  }
+
+  const n = numTabsForUser();
+  const tabs = {};
+  for(let i = 1; i <= n; i++) if(tempTabs[i]) tabs[i] = tempTabs[i];
 
   if(editId){
     const idx = records.findIndex(r => r.id === editId);
-    if(idx >= 0) records[idx] = { ...records[idx], date, tabs: tabsData, activeTab: curTab, sent: false };
+    if(idx >= 0) records[idx] = { ...records[idx], date, tabs, activeTab: curTab, sent: false };
   } else {
-    records.push({ id: Date.now().toString(), date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
+    records.push({ id: Date.now().toString(), date, tabs, sent: false, activeTab: curTab, username: user.username });
   }
   LS.s('hm_records', records);
   tempTabs = {}; closeOv('ovEnt'); renderList();
@@ -596,16 +622,16 @@ function renderList(){
   const mine = records.filter(r => !r.username || !user || r.username === user.username);
   if(!mine.length){ list.innerHTML = ''; emp.style.display = 'block'; return; }
   emp.style.display = 'none';
+  const n = numTabsForUser();
   const sorted = [...mine].sort((a,b) => b.date.localeCompare(a.date));
   list.innerHTML = sorted.map(rec => {
-    const tabList = getTabList();
     let ag = true;
     const dots = [];
-    tabList.forEach(i => {
+    for(let i = 1; i <= n; i++){
       const ok = isFilled(rec.tabs?.[i]);
       if(!ok) ag = false;
       dots.push(`<div class="td ${ok?'g':'r'}">${i}</div>`);
-    });
+    }
     const pill    = ag ? '<span class="pill pg">✓ Completo</span>' : '<span class="pill pr">⚠ Incompleto</span>';
     const sentLbl = rec.sent ? '<span class="sent-lbl s">✓ Inviato</span>' : '<span class="sent-lbl">Non inviato</span>';
     return `<div class="rc ${ag?'ag':'hr'}">
@@ -652,9 +678,9 @@ async function doSend(id){
 
   showToast('📤 Invio in corso…');
 
-  const tabList = getTabList();
+  const n    = numTabsForUser();
   const rows = [];
-  tabList.forEach(i => {
+  for(let i = 1; i <= n; i++){
     const d   = rec.tabs?.[i] || {};
     const map = {
       'Data': rec.date, 'Tab': i,
@@ -663,18 +689,18 @@ async function doSend(id){
       'T.IRRIG': d.tIrrig||'', 'DRAIN': d.drain||'', '%': d.perc||''
     };
     rows.push(cols.map(c => map[c] !== undefined ? map[c] : ''));
-  });
+  }
 
   const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
   const url     = CONFIG_URL + '?action=appendData&data=' + payload;
   const result  = await jsonpCall(url, 20000);
 
   if(result && result.ok){
-    const idx = records.findIndex(r => r.id === id);
-    records[idx].sent = true;
+    // Elimina automaticamente il record dopo l'invio riuscito
+    records = records.filter(r => r.id !== id);
     LS.s('hm_records', records);
     renderList();
-    showToast('✅ Dati inviati al foglio Google!');
+    showToast('✅ Dati inviati ed eliminati dal locale!');
   } else {
     const err = result && result.error ? result.error : 'Errore sconosciuto';
     showToast('❌ ' + err);
@@ -688,10 +714,24 @@ function openOv(id)  { document.getElementById(id).classList.add('on'); }
 function closeOv(id) {
   document.getElementById(id).classList.remove('on');
   if(id === 'ovEnt') tempTabs = {};
+  if(id === 'ovLg') popupDown();
 }
 document.querySelectorAll('.ov').forEach(o => {
   o.addEventListener('click', e => { if(e.target === o) closeOv(o.id); });
 });
+
+// Sposta il popup login sopra la tastiera quando un campo è a fuoco
+let kbTimer = null;
+function popupUp(){
+  clearTimeout(kbTimer);
+  document.getElementById('ovLg').classList.add('kb-up');
+}
+function popupDown(){
+  // Piccolo delay per evitare flicker quando si passa da un campo all'altro
+  kbTimer = setTimeout(() => {
+    document.getElementById('ovLg').classList.remove('kb-up');
+  }, 150);
+}
 
 /* ════════════════════════════════
    TOAST
