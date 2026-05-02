@@ -443,8 +443,9 @@ function handleLogin(){
   // Apre sempre il popup, mai logout diretto
   document.getElementById('liErr').style.display = 'none';
   document.getElementById('liU').value = user ? user.username : '';
-  document.getElementById('liP').value = '';
-  // Ripristina icona occhio e tipo password
+  // Se già loggato, ricompila la password salvata; altrimenti campo vuoto
+  document.getElementById('liP').value = user ? (user.password || '') : '';
+  // Ripristina icona occhio e tipo password (nascosta)
   const inp = document.getElementById('liP');
   inp.type  = 'password';
   document.getElementById('pwEye').innerHTML = SVG_EYE_ON;
