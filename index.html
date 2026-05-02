@@ -159,19 +159,22 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .fg input:focus{border-color:var(--g);background:#fff;}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
-/* BOTTONI POPUP — bordi espliciti e visibili */
+/* PASSWORD FIELD con occhio */
+.pw-wrap{position:relative;}
+.pw-wrap input{padding-right:44px;}
+.pw-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+        background:none;border:none;cursor:pointer;padding:4px;
+        color:var(--tx2);font-size:18px;line-height:1;display:flex;align-items:center;}
+
+/* BOTTONI POPUP */
 .fa{display:flex;gap:10px;padding:14px 15px 20px;}
-.fa .btn{
-  flex:1;padding:12px 8px;font-size:14px;font-weight:700;
-  border-radius:10px;cursor:pointer;font-family:var(--fnt);
-  transition:all .15s;
-  /* Reset browser default */
-  -webkit-appearance:none;appearance:none;
-}
+.fa .btn{flex:1;padding:12px 8px;font-size:14px;font-weight:700;border-radius:10px;
+         cursor:pointer;font-family:var(--fnt);transition:all .15s;
+         -webkit-appearance:none;appearance:none;}
 .fa .btn:active{transform:scale(.97);}
-.btn-p{background:var(--g);   color:#fff;         border:2px solid #1a6b3a;}
-.btn-d{background:var(--r-lt);color:var(--r);     border:2px solid #fca5a5;}
-.btn-s{background:var(--gr-lt);color:var(--tx);   border:2px solid var(--bd);}
+.btn-p{background:var(--g);   color:#fff;      border:2px solid #1a6b3a;}
+.btn-d{background:var(--r-lt);color:var(--r);  border:2px solid #fca5a5;}
+.btn-s{background:var(--gr-lt);color:var(--tx);border:2px solid var(--bd);}
 
 /* DIALOG */
 .dlg{background:var(--card);border-radius:var(--rad);padding:22px 18px;
@@ -189,22 +192,30 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
        white-space:nowrap;max-width:90vw;text-align:center;}
 .toast.on{opacity:1;}
 
-/* LOGIN POPUP — sale quando appare la tastiera */
-#ovLg{ align-items:flex-end; transition:none; }
+/* LOGIN OVERLAY — sempre sopra centro, sale di più con tastiera */
+#ovLg{align-items:center;justify-content:center;}
 #ovLg .pp.m{
-  border-radius: var(--rad) var(--rad) 0 0;
-  margin: 0;
-  width: 100%;
-  max-width: 100%;
-  transition: transform .25s ease;
+  border-radius:var(--rad);
+  margin:0 16px;
+  width:calc(100% - 32px);
+  max-width:400px;
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  transform:translateY(-8vh);
 }
-#ovLg.kb-up{ align-items:flex-start; padding-top: 12px; }
 #ovLg.kb-up .pp.m{
-  border-radius: var(--rad);
-  margin: 0 14px;
-  width: calc(100% - 28px);
-  max-width: 440px;
+  transform:translateY(-28vh);
 }
+/* wrapper campo password con occhio */
+.pw-wrap{position:relative;display:flex;align-items:center;}
+.pw-wrap input{flex:1;padding-right:44px;}
+.pw-eye{
+  position:absolute;right:0;top:50%;transform:translateY(-50%);
+  width:42px;height:100%;border:none;background:transparent;
+  cursor:pointer;display:flex;align-items:center;
+  justify-content:center;color:var(--gr);
+  transition:color .15s;padding:0;
+}
+.pw-eye:hover{color:var(--g);}
 </style>
 </head>
 <body>
@@ -240,8 +251,8 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 <div class="toast" id="toast"></div>
 
 <!-- ══ OVERLAY LOGIN ══ -->
-<div class="ov c" id="ovLg">
-  <div class="pp m" id="ppLg">
+<div class="ov" id="ovLg">
+  <div class="pp m">
     <div class="pp-hd">
       <span class="pp-tit">🔑 Accesso</span>
       <button class="btn-x" onclick="closeOv('ovLg')">✕</button>
@@ -250,16 +261,25 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
       <div class="fg">
         <label>Username</label>
         <input id="liU" type="text" autocomplete="username" placeholder="Il tuo username"
-               onfocus="popupUp()" onblur="popupDown()">
+               onfocus="kbUp()" onblur="kbDown()">
       </div>
       <div class="fg">
         <label>Password</label>
-        <input id="liP" type="password" autocomplete="current-password" placeholder="Password"
-               onfocus="popupUp()" onblur="popupDown()">
+        <div class="pw-wrap">
+          <input id="liP" type="password" autocomplete="current-password" placeholder="Password"
+                 onfocus="kbUp()" onblur="kbDown()">
+          <button class="pw-eye" type="button" onclick="togglePw()" id="pwEye" tabindex="-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <div id="liErr" style="display:none;color:var(--r);font-size:13px;margin-top:8px;
            padding:9px 11px;background:var(--r-lt);border-radius:8px;border:1px solid #fca5a5;">
         ⚠️ Username o password non corretti.
+      </div>
+      <!-- Pulsante logout visibile solo se già loggato -->
+      <div id="logoutRow" style="display:none;margin-top:10px;text-align:center;">
+        <button class="btn btn-d" style="width:100%;padding:10px;" onclick="doLogout()">
+          Esci (logout)
+        </button>
       </div>
     </div>
     <div class="fa">
@@ -288,8 +308,8 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
         <div class="fg"><label>pH IN</label> <input type="number" step="0.01" id="fPhI" placeholder="es. 5.8"></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>T. IRRIG °C</label><input type="number" step="0.1" id="fTir" placeholder="es. 21.5"></div>
-        <div class="fg"><label>DRAIN</label>      <input type="number" step="0.01" id="fDrn" placeholder="es. 0.8"></div>
+        <div class="fg"><label>T. IRRIG °C</label><input type="number" step="0.1"  id="fTir" placeholder="es. 21.5"></div>
+        <div class="fg"><label>DRAIN</label>       <input type="number" step="0.01" id="fDrn" placeholder="es. 0.8"></div>
       </div>
       <div class="fg"><label>% Drain</label><input type="number" step="0.1" id="fPrc" placeholder="es. 25.5"></div>
     </div>
@@ -313,34 +333,32 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 </div>
 
 <script>
-/* ════════════════════════════════════════════════════
-   ▼▼▼  UNICA RIGA DA MODIFICARE PRIMA DI CARICARE  ▼▼▼
-════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   ▼▼  UNICA RIGA DA MODIFICARE PRIMA DI CARICARE
+═══════════════════════════════════════════════ */
 const CONFIG_URL = 'https://script.google.com/macros/s/AKfycbxUB3JbhmkA9sFSpYXWBvnLqrSiXOWDrZ1ZvTTvGFCA-Byaymh7FCZ36gY-cvEnmSeF/exec';
-/* ════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════ */
 
 const FIDS  = ['fEcO','fEcI','fPhO','fPhI','fTir','fDrn','fPrc'];
 const FKEYS = ['ecOut','ecIn','phOut','phIn','tIrrig','drain','perc'];
 const SYNC_MS = 24 * 60 * 60 * 1000;
 
-let user    = null;
-let records = [];
-let editId  = null;
-let curTab  = 1;
-let tempTabs= {};
+let user     = null;
+let records  = [];
+let editId   = null;
+let curTab   = 1;
+let tempTabs = {};
 
 const LS = {
-  g: k => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
+  g: k  => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
   s: (k,v) => localStorage.setItem(k, JSON.stringify(v)),
-  r: k => localStorage.removeItem(k)
+  r: k  => localStorage.removeItem(k)
 };
 
-/* ════════════════════════════════
-   INIT
-════════════════════════════════ */
+/* ─── INIT ─────────────────────────────────── */
 async function init(){
   records = LS.g('hm_records') || [];
-  // Login persistente: usa localStorage così rimane anche dopo chiusura app
+  // Login persistente tramite localStorage
   const saved = LS.g('hm_user');
   if(saved){ user = saved; applyLogin(); }
   renderList();
@@ -354,36 +372,25 @@ function checkOnline(){
   document.getElementById('offlineBanner').classList.toggle('show', !navigator.onLine);
 }
 
-/* ════════════════════════════════
-   SYNC CONFIG via JSONP
-   ────────────────────────────────
-   Perché JSONP?
-   Il browser blocca le chiamate fetch() verso
-   script.google.com a causa dei CORS header
-   impostati da Google. Con un tag <script> il
-   browser carica il JS senza restrizioni CORS,
-   e lo script Google risponde con
-   callback({...dati...}) che eseguiamo qui.
-════════════════════════════════ */
+/* ─── JSONP helper ──────────────────────────── */
 function jsonpCall(url, timeout){
   return new Promise(resolve => {
-    const cb   = '_hm_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const scr  = document.createElement('script');
-    const tid  = setTimeout(() => { cleanup(); resolve({ error: 'timeout' }); }, timeout || 12000);
-
+    const cb  = '_hm_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const scr = document.createElement('script');
+    const tid = setTimeout(() => { cleanup(); resolve({error:'timeout'}); }, timeout || 12000);
     function cleanup(){
-      clearTimeout(tid);
-      delete window[cb];
+      clearTimeout(tid); delete window[cb];
       if(scr.parentNode) scr.parentNode.removeChild(scr);
     }
-
-    window[cb] = data => { cleanup(); resolve(data); };
-    scr.onerror = () => { cleanup(); resolve({ error: 'network' }); };
-    scr.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    window[cb]  = data => { cleanup(); resolve(data); };
+    scr.onerror = ()   => { cleanup(); resolve({error:'network'}); };
+    const sep   = url.includes('?') ? '&' : '?';
+    scr.src     = url + sep + 'callback=' + cb;
     document.head.appendChild(scr);
   });
 }
 
+/* ─── SYNC CONFIG ───────────────────────────── */
 async function triggerSync(){
   const last   = LS.g('hm_sync_ts') || 0;
   const cached = LS.g('hm_cfg');
@@ -393,51 +400,59 @@ async function triggerSync(){
     else { showSync('err','📵 Offline'); setTimeout(hideSync, 3000); }
     return;
   }
-
-  // Già sincronizzato nelle ultime 24h → usa cache
   if(cached && (Date.now() - last) < SYNC_MS) return;
 
-  showSync('spin-it', '<span class="sp">⟳</span> Sync config…');
-  const data = await jsonpCall(CONFIG_URL + '?action=getConfig');
+  showSync('spin-it','<span class="sp">⟳</span> Sync…');
+  const data = await jsonpCall(CONFIG_URL + '?action=getConfig', 12000);
 
   if(data && data.users){
     LS.s('hm_cfg', data);
     LS.s('hm_sync_ts', Date.now());
-    showSync('ok', '✓ Config aggiornata');
+    showSync('ok','✓ Config aggiornata');
     setTimeout(hideSync, 2500);
-    // Aggiorna sessione utente se loggato
     if(user){
       const fresh = data.users.find(u => u.username === user.username);
       if(fresh){ user = fresh; LS.s('hm_user', fresh); }
     }
   } else {
-    const msg = data && data.error ? data.error : 'errore sconosciuto';
-    console.warn('Sync fallito:', msg);
-    showSync('err', '⚠️ Sync fallito');
+    showSync('err','⚠️ Sync fallito');
     setTimeout(hideSync, 4000);
   }
 }
+function showSync(cls,html){ const c=document.getElementById('syncChip'); c.className='sync-chip '+cls; c.innerHTML=html; }
+function hideSync(){ document.getElementById('syncChip').className='sync-chip'; }
 
-function showSync(cls, html){
-  const c = document.getElementById('syncChip');
-  c.className = 'sync-chip ' + cls;
-  c.innerHTML = html;
+/* ─── TAB LIST ──────────────────────────────
+   numtabs nel foglio config può essere:
+   "5"       → tab 1,2,3,4,5
+   "1,4,5,7" → solo quei numeri specifici
+─────────────────────────────────────────── */
+function getTabList(){
+  const raw = String((user && (user.numtabs || user.numTabs)) || '5').trim();
+  if(raw.includes(',')){
+    return raw.split(',')
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n >= 1 && n <= 99);
+  }
+  const n = Math.min(Math.max(parseInt(raw) || 5, 1), 10);
+  return Array.from({length: n}, (_, i) => i + 1);
 }
-function hideSync(){ document.getElementById('syncChip').className = 'sync-chip'; }
 
-/* ════════════════════════════════
-   LOGIN
-════════════════════════════════ */
+/* ─── LOGIN ─────────────────────────────────── */
 function handleLogin(){
-  // Cliccando il bottone (loggato o no) apre sempre il popup di login
+  // Apre sempre il popup, mai logout diretto
   document.getElementById('liErr').style.display = 'none';
   document.getElementById('liU').value = user ? user.username : '';
-  document.getElementById('liP').value = '';
+  document.getElementById('liP').value = '';           // password sempre vuota
+  // Ripristina visibilità password → nascosta
+  const inp = document.getElementById('liP');
+  inp.type  = 'password';
+  document.getElementById('pwEye').innerHTML = SVG_EYE_ON; document.getElementById('pwEye').style.color='var(--gr)';
+  // Mostra/nascondi bottone logout
+  document.getElementById('logoutRow').style.display = user ? 'block' : 'none';
   openOv('ovLg');
   setTimeout(() => {
-    // Se già loggato, mette il focus sulla password; altrimenti sullo username
-    const f = user ? document.getElementById('liP') : document.getElementById('liU');
-    f.focus();
+    (user ? document.getElementById('liP') : document.getElementById('liU')).focus();
   }, 200);
 }
 
@@ -446,13 +461,13 @@ function doLogin(){
   const p = document.getElementById('liP').value;
   const cache = LS.g('hm_cfg');
   if(!cache || !cache.users || !cache.users.length){
-    showToast('⚠️ Config non ancora caricata — riprova tra qualche secondo');
+    showToast('⚠️ Config non ancora caricata — riprova');
     closeOv('ovLg'); return;
   }
   const found = cache.users.find(x => x.username === u && x.password === p);
   if(found){
     user = found;
-    LS.s('hm_user', found);   // persiste anche dopo chiusura app
+    LS.s('hm_user', found);
     applyLogin();
     closeOv('ovLg');
     showToast('✅ Benvenuto, ' + u + '!');
@@ -474,32 +489,56 @@ function doLogout(){
   document.getElementById('btnLg').classList.remove('on');
   document.getElementById('lgLabel').textContent = 'Login';
   document.getElementById('fab').disabled = true;
+  closeOv('ovLg');
   renderList();
   showToast('Disconnesso');
 }
 
-/* ════════════════════════════════
-   ENTRY POPUP
-════════════════════════════════ */
-function todayISO(){ return new Date().toISOString().split('T')[0]; }
+const SVG_EYE_ON  = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const SVG_EYE_OFF = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
-function numTabsForUser(){
-  const n = parseInt((user && (user.numtabs || user.numTabs)) || 5);
-  return Math.min(Math.max(n, 1), 10);
+function togglePw(){
+  const inp = document.getElementById('liP');
+  const eye = document.getElementById('pwEye');
+  if(inp.type === 'password'){
+    inp.type = 'text';
+    eye.innerHTML = SVG_EYE_OFF;
+    eye.style.color = 'var(--g)';
+  } else {
+    inp.type = 'password';
+    eye.innerHTML = SVG_EYE_ON;
+    eye.style.color = 'var(--gr)';
+  }
 }
+
+// Tastiera mobile: sposta il popup verso l'alto
+let kbTimer = null;
+function kbUp(){
+  clearTimeout(kbTimer);
+  document.getElementById('ovLg').classList.add('kb-up');
+}
+function kbDown(){
+  kbTimer = setTimeout(() => {
+    document.getElementById('ovLg').classList.remove('kb-up');
+  }, 200);
+}
+
+/* ─── ENTRY POPUP ───────────────────────────── */
+function todayISO(){ return new Date().toISOString().split('T')[0]; }
 
 function openEntry(id){
   if(!user){ showToast('⚠️ Fai login prima'); return; }
-  editId = id; curTab = 1; tempTabs = {};
-  const n = numTabsForUser();
-  buildNumBar(n);
+  editId = id; tempTabs = {};
+  const tabs = getTabList();
+  curTab = tabs[0];
+  buildNumBar(tabs);
 
   if(id){
     const rec = records.find(r => r.id === id);
     document.getElementById('entTit').textContent = 'Modifica rilevazione';
     document.getElementById('fDate').value = rec.date || todayISO();
-    curTab = rec.activeTab || 1;
-    for(let i = 1; i <= n; i++) if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]};
+    curTab = tabs.includes(rec.activeTab) ? rec.activeTab : tabs[0];
+    tabs.forEach(i => { if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
     document.getElementById('btnDel').style.display = '';
   } else {
     document.getElementById('entTit').textContent = 'Nuova rilevazione';
@@ -510,15 +549,15 @@ function openEntry(id){
   openOv('ovEnt');
 }
 
-function buildNumBar(n){
+function buildNumBar(tabs){
   const bar = document.getElementById('numBar');
   bar.innerHTML = '';
-  for(let i = 1; i <= n; i++){
+  tabs.forEach(i => {
     const b = document.createElement('button');
     b.className = 'nbb e'; b.id = 'nb' + i; b.textContent = i;
     b.onclick = (x => () => switchTab(x))(i);
     bar.appendChild(b);
-  }
+  });
 }
 
 function switchTab(idx){
@@ -552,16 +591,14 @@ function isFilled(d){
   return d && FKEYS.every(k => d[k] !== '' && d[k] !== undefined && d[k] !== null);
 }
 function refreshBar(){
-  const n = numTabsForUser();
-  for(let i = 1; i <= n; i++){
-    const b = document.getElementById('nb'+i); if(!b) continue;
+  getTabList().forEach(i => {
+    const b = document.getElementById('nb'+i); if(!b) return;
     b.classList.remove('f','e');
     b.classList.add(isFilled(tempTabs[i]) ? 'f' : 'e');
-  }
+  });
 }
 function setActive(idx){
-  const n = numTabsForUser();
-  for(let i = 1; i <= n; i++){ const b=document.getElementById('nb'+i); if(b) b.classList.remove('act'); }
+  getTabList().forEach(i => { const b=document.getElementById('nb'+i); if(b) b.classList.remove('act'); });
   const b = document.getElementById('nb'+idx); if(b) b.classList.add('act');
 }
 
@@ -569,42 +606,37 @@ FIDS.forEach(id => {
   document.getElementById(id).addEventListener('input', () => { saveFields(curTab); refreshBar(); });
 });
 
+/* ─── SAVE ENTRY ────────────────────────────── */
 function saveEntry(){
   saveFields(curTab);
   const date = document.getElementById('fDate').value;
   if(!date){ showToast('⚠️ Inserisci una data'); return; }
 
-  // Controlla: esiste già un record per questa data per questo utente?
-  // (solo per nuovi record, non per modifiche)
+  // Controlla duplicato in locale (solo per nuovi record)
   if(!editId){
-    const duplicate = records.find(r =>
-      r.username === user.username && r.date === date
-    );
-    if(duplicate){
-      showToast('⚠️ Esiste già una rilevazione per oggi — modificala');
-      closeOv('ovEnt');
-      return;
+    const dup = records.find(r => r.username === user.username && r.date === date);
+    if(dup){
+      showToast('⚠️ Rilevazione già presente per questa data');
+      closeOv('ovEnt'); return;
     }
   }
 
-  const n = numTabsForUser();
-  const tabs = {};
-  for(let i = 1; i <= n; i++) if(tempTabs[i]) tabs[i] = tempTabs[i];
+  const tabs = getTabList();
+  const tabsData = {};
+  tabs.forEach(i => { if(tempTabs[i]) tabsData[i] = tempTabs[i]; });
 
   if(editId){
     const idx = records.findIndex(r => r.id === editId);
-    if(idx >= 0) records[idx] = { ...records[idx], date, tabs, activeTab: curTab, sent: false };
+    if(idx >= 0) records[idx] = { ...records[idx], date, tabs: tabsData, activeTab: curTab, sent: false };
   } else {
-    records.push({ id: Date.now().toString(), date, tabs, sent: false, activeTab: curTab, username: user.username });
+    records.push({ id: Date.now().toString(), date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
   }
   LS.s('hm_records', records);
   tempTabs = {}; closeOv('ovEnt'); renderList();
   showToast('✅ Salvato in locale');
 }
 
-/* ════════════════════════════════
-   DELETE
-════════════════════════════════ */
+/* ─── DELETE ────────────────────────────────── */
 function askDel(){ openOv('ovDel'); }
 function doDel(){
   records = records.filter(r => r.id !== editId);
@@ -613,25 +645,22 @@ function doDel(){
   showToast('🗑 Eliminata');
 }
 
-/* ════════════════════════════════
-   RENDER LIST
-════════════════════════════════ */
+/* ─── RENDER LIST ───────────────────────────── */
 function renderList(){
   const list = document.getElementById('list');
   const emp  = document.getElementById('emptyState');
   const mine = records.filter(r => !r.username || !user || r.username === user.username);
-  if(!mine.length){ list.innerHTML = ''; emp.style.display = 'block'; return; }
+  if(!mine.length){ list.innerHTML=''; emp.style.display='block'; return; }
   emp.style.display = 'none';
-  const n = numTabsForUser();
-  const sorted = [...mine].sort((a,b) => b.date.localeCompare(a.date));
+  const tabList = getTabList();
+  const sorted  = [...mine].sort((a,b) => b.date.localeCompare(a.date));
   list.innerHTML = sorted.map(rec => {
     let ag = true;
-    const dots = [];
-    for(let i = 1; i <= n; i++){
+    const dots = tabList.map(i => {
       const ok = isFilled(rec.tabs?.[i]);
       if(!ok) ag = false;
-      dots.push(`<div class="td ${ok?'g':'r'}">${i}</div>`);
-    }
+      return `<div class="td ${ok?'g':'r'}">${i}</div>`;
+    });
     const pill    = ag ? '<span class="pill pg">✓ Completo</span>' : '<span class="pill pr">⚠ Incompleto</span>';
     const sentLbl = rec.sent ? '<span class="sent-lbl s">✓ Inviato</span>' : '<span class="sent-lbl">Non inviato</span>';
     return `<div class="rc ${ag?'ag':'hr'}">
@@ -653,15 +682,11 @@ function fmtD(d){
   const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`;
 }
 
-/* ════════════════════════════════════════════════
-   SEND — via Apps Script proxy (JSONP)
-   ────────────────────────────────────────────────
-   Lo script Google Apps Script è eseguito con
-   l'account dell'amministratore (chi ha creato lo
-   script) e ha già accesso ai fogli Google.
-   L'utente dell'app NON deve autorizzare nulla:
-   basta essere online e fare il login nell'app.
-════════════════════════════════════════════════ */
+/* ─── SEND ──────────────────────────────────────
+   Invio via Apps Script proxy (JSONP).
+   Prima di inviare controlla online se esiste già
+   una rilevazione per la stessa data nel foglio.
+─────────────────────────────────────────────── */
 async function doSend(id){
   if(!user){ showToast('⚠️ Fai login prima'); return; }
   if(!navigator.onLine){ showToast('📵 Nessuna connessione'); return; }
@@ -674,13 +699,28 @@ async function doSend(id){
   const cols = (user.columns || 'Data,Tab,EC OUT,EC IN,pH OUT,pH IN,T.IRRIG,DRAIN,%')
                  .split(',').map(s => s.trim());
 
-  if(!sid || !stab){ showToast('⚠️ sheetId o sheetTab mancanti — controlla il foglio config'); return; }
+  if(!sid || !stab){ showToast('⚠️ sheetId o sheetTab mancanti nel config'); return; }
 
+  // ── Controllo duplicato ONLINE ──────────────
+  showToast('🔍 Verifico duplicati sul foglio…');
+  const checkUrl  = CONFIG_URL + '?action=checkDate&sheetId=' + encodeURIComponent(sid)
+                  + '&sheetTab=' + encodeURIComponent(stab)
+                  + '&date=' + encodeURIComponent(rec.date);
+  const chk = await jsonpCall(checkUrl, 10000);
+
+  if(chk && chk.exists){
+    showToast('⚠️ Esiste già una rilevazione per ' + fmtD(rec.date) + ' nel foglio!');
+    return;
+  }
+  if(chk && chk.error && chk.error !== 'not_found'){
+    // Errore di rete nella verifica: avvisa ma lascia procedere
+    showToast('⚠️ Impossibile verificare duplicati — procedo comunque');
+  }
+
+  // ── Invio righe ─────────────────────────────
   showToast('📤 Invio in corso…');
-
-  const n    = numTabsForUser();
-  const rows = [];
-  for(let i = 1; i <= n; i++){
+  const tabList = getTabList();
+  const rows    = tabList.map(i => {
     const d   = rec.tabs?.[i] || {};
     const map = {
       'Data': rec.date, 'Tab': i,
@@ -688,61 +728,42 @@ async function doSend(id){
       'pH OUT': d.phOut||'', 'pH IN': d.phIn||'',
       'T.IRRIG': d.tIrrig||'', 'DRAIN': d.drain||'', '%': d.perc||''
     };
-    rows.push(cols.map(c => map[c] !== undefined ? map[c] : ''));
-  }
+    return cols.map(c => map[c] !== undefined ? map[c] : '');
+  });
 
   const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
-  const url     = CONFIG_URL + '?action=appendData&data=' + payload;
-  const result  = await jsonpCall(url, 20000);
+  const result  = await jsonpCall(CONFIG_URL + '?action=appendData&data=' + payload, 20000);
 
   if(result && result.ok){
-    // Elimina automaticamente il record dopo l'invio riuscito
+    // Auto-elimina dopo invio riuscito
     records = records.filter(r => r.id !== id);
     LS.s('hm_records', records);
     renderList();
-    showToast('✅ Dati inviati ed eliminati dal locale!');
+    showToast('✅ Inviato ed eliminato dal locale!');
   } else {
-    const err = result && result.error ? result.error : 'Errore sconosciuto';
-    showToast('❌ ' + err);
+    showToast('❌ ' + (result?.error || 'Errore sconosciuto'));
   }
 }
 
-/* ════════════════════════════════
-   OVERLAY HELPERS
-════════════════════════════════ */
+/* ─── OVERLAY HELPERS ───────────────────────── */
 function openOv(id)  { document.getElementById(id).classList.add('on'); }
 function closeOv(id) {
   document.getElementById(id).classList.remove('on');
   if(id === 'ovEnt') tempTabs = {};
-  if(id === 'ovLg') popupDown();
+  if(id === 'ovLg')  kbDown();
 }
 document.querySelectorAll('.ov').forEach(o => {
   o.addEventListener('click', e => { if(e.target === o) closeOv(o.id); });
 });
 
-// Sposta il popup login sopra la tastiera quando un campo è a fuoco
-let kbTimer = null;
-function popupUp(){
-  clearTimeout(kbTimer);
-  document.getElementById('ovLg').classList.add('kb-up');
-}
-function popupDown(){
-  // Piccolo delay per evitare flicker quando si passa da un campo all'altro
-  kbTimer = setTimeout(() => {
-    document.getElementById('ovLg').classList.remove('kb-up');
-  }, 150);
-}
-
-/* ════════════════════════════════
-   TOAST
-════════════════════════════════ */
+/* ─── TOAST ─────────────────────────────────── */
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('on');
-  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3000);
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3200);
 }
 
-/* SERVICE WORKER */
+/* ─── SERVICE WORKER ────────────────────────── */
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
