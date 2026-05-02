@@ -358,7 +358,9 @@ function jsonpCall(url, timeout){
 
     window[cb] = data => { cleanup(); resolve(data); };
     scr.onerror = () => { cleanup(); resolve({ error: 'network' }); };
-    scr.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    // Aggiunge callback come parametro — gestisce sia URL con ? che senza
+    const sep = url.includes('?') ? '&' : '?';
+    scr.src = url + sep + 'callback=' + cb;
     document.head.appendChild(scr);
   });
 }
@@ -377,7 +379,7 @@ async function triggerSync(){
   if(cached && (Date.now() - last) < SYNC_MS) return;
 
   showSync('spin-it', '<span class="sp">⟳</span> Sync config…');
-  const data = await jsonpCall(CONFIG_URL + '?action=getConfig');
+  const data = await jsonpCall(CONFIG_URL + '?action=getConfig', 12000);
 
   if(data && data.users){
     LS.s('hm_cfg', data);
@@ -458,23 +460,35 @@ function doLogout(){
 ════════════════════════════════ */
 function todayISO(){ return new Date().toISOString().split('T')[0]; }
 
-function numTabsForUser(){
-  const n = parseInt((user && (user.numtabs || user.numTabs)) || 5);
-  return Math.min(Math.max(n, 1), 10);
+// Restituisce array dei tab da mostrare.
+// numtabs nel foglio config può essere:
+//   "1,4,5,6,7" → mostra solo quei numeri specifici
+//   "5"          → mostra tab 1,2,3,4,5 (vecchio comportamento)
+function getTabList(){
+  const raw = String((user && (user.numtabs || user.numTabs)) || '5');
+  if(raw.includes(',')){
+    return raw.split(',')
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n >= 1 && n <= 99);
+  }
+  const n = Math.min(Math.max(parseInt(raw) || 5, 1), 10);
+  return Array.from({length: n}, (_, i) => i + 1);
 }
+function numTabsForUser(){ return getTabList().length; }
 
 function openEntry(id){
   if(!user){ showToast('⚠️ Fai login prima'); return; }
-  editId = id; curTab = 1; tempTabs = {};
-  const n = numTabsForUser();
-  buildNumBar(n);
+  editId = id; tempTabs = {};
+  const tabs = getTabList();
+  curTab = tabs[0];
+  buildNumBar();
 
   if(id){
     const rec = records.find(r => r.id === id);
     document.getElementById('entTit').textContent = 'Modifica rilevazione';
     document.getElementById('fDate').value = rec.date || todayISO();
-    curTab = rec.activeTab || 1;
-    for(let i = 1; i <= n; i++) if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]};
+    curTab = tabs.includes(rec.activeTab) ? rec.activeTab : tabs[0];
+    tabs.forEach(i => { if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
     document.getElementById('btnDel').style.display = '';
   } else {
     document.getElementById('entTit').textContent = 'Nuova rilevazione';
@@ -485,15 +499,16 @@ function openEntry(id){
   openOv('ovEnt');
 }
 
-function buildNumBar(n){
-  const bar = document.getElementById('numBar');
+function buildNumBar(){
+  const bar  = document.getElementById('numBar');
+  const tabs = getTabList();
   bar.innerHTML = '';
-  for(let i = 1; i <= n; i++){
+  tabs.forEach(i => {
     const b = document.createElement('button');
     b.className = 'nbb e'; b.id = 'nb' + i; b.textContent = i;
     b.onclick = (x => () => switchTab(x))(i);
     bar.appendChild(b);
-  }
+  });
 }
 
 function switchTab(idx){
@@ -527,16 +542,14 @@ function isFilled(d){
   return d && FKEYS.every(k => d[k] !== '' && d[k] !== undefined && d[k] !== null);
 }
 function refreshBar(){
-  const n = numTabsForUser();
-  for(let i = 1; i <= n; i++){
-    const b = document.getElementById('nb'+i); if(!b) continue;
+  getTabList().forEach(i => {
+    const b = document.getElementById('nb'+i); if(!b) return;
     b.classList.remove('f','e');
     b.classList.add(isFilled(tempTabs[i]) ? 'f' : 'e');
-  }
+  });
 }
 function setActive(idx){
-  const n = numTabsForUser();
-  for(let i = 1; i <= n; i++){ const b=document.getElementById('nb'+i); if(b) b.classList.remove('act'); }
+  getTabList().forEach(i => { const b=document.getElementById('nb'+i); if(b) b.classList.remove('act'); });
   const b = document.getElementById('nb'+idx); if(b) b.classList.add('act');
 }
 
@@ -548,15 +561,15 @@ function saveEntry(){
   saveFields(curTab);
   const date = document.getElementById('fDate').value;
   if(!date){ showToast('⚠️ Inserisci una data'); return; }
-  const n = numTabsForUser();
-  const tabs = {};
-  for(let i = 1; i <= n; i++) if(tempTabs[i]) tabs[i] = tempTabs[i];
+  const tabs = getTabList();
+  const tabsData = {};
+  tabs.forEach(i => { if(tempTabs[i]) tabsData[i] = tempTabs[i]; });
 
   if(editId){
     const idx = records.findIndex(r => r.id === editId);
-    if(idx >= 0) records[idx] = { ...records[idx], date, tabs, activeTab: curTab, sent: false };
+    if(idx >= 0) records[idx] = { ...records[idx], date, tabs: tabsData, activeTab: curTab, sent: false };
   } else {
-    records.push({ id: Date.now().toString(), date, tabs, sent: false, activeTab: curTab, username: user.username });
+    records.push({ id: Date.now().toString(), date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
   }
   LS.s('hm_records', records);
   tempTabs = {}; closeOv('ovEnt'); renderList();
@@ -583,16 +596,16 @@ function renderList(){
   const mine = records.filter(r => !r.username || !user || r.username === user.username);
   if(!mine.length){ list.innerHTML = ''; emp.style.display = 'block'; return; }
   emp.style.display = 'none';
-  const n = numTabsForUser();
   const sorted = [...mine].sort((a,b) => b.date.localeCompare(a.date));
   list.innerHTML = sorted.map(rec => {
+    const tabList = getTabList();
     let ag = true;
     const dots = [];
-    for(let i = 1; i <= n; i++){
+    tabList.forEach(i => {
       const ok = isFilled(rec.tabs?.[i]);
       if(!ok) ag = false;
       dots.push(`<div class="td ${ok?'g':'r'}">${i}</div>`);
-    }
+    });
     const pill    = ag ? '<span class="pill pg">✓ Completo</span>' : '<span class="pill pr">⚠ Incompleto</span>';
     const sentLbl = rec.sent ? '<span class="sent-lbl s">✓ Inviato</span>' : '<span class="sent-lbl">Non inviato</span>';
     return `<div class="rc ${ag?'ag':'hr'}">
@@ -639,9 +652,9 @@ async function doSend(id){
 
   showToast('📤 Invio in corso…');
 
-  const n    = numTabsForUser();
+  const tabList = getTabList();
   const rows = [];
-  for(let i = 1; i <= n; i++){
+  tabList.forEach(i => {
     const d   = rec.tabs?.[i] || {};
     const map = {
       'Data': rec.date, 'Tab': i,
@@ -650,7 +663,7 @@ async function doSend(id){
       'T.IRRIG': d.tIrrig||'', 'DRAIN': d.drain||'', '%': d.perc||''
     };
     rows.push(cols.map(c => map[c] !== undefined ? map[c] : ''));
-  }
+  });
 
   const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
   const url     = CONFIG_URL + '?action=appendData&data=' + payload;
