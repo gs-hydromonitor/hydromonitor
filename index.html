@@ -137,8 +137,12 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
        border:none;font-size:15px;cursor:pointer;color:var(--gr);
        display:flex;align-items:center;justify-content:center;}
 
+/* TAB LABEL */
+.tab-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+         color:var(--tx2);padding:14px 15px 0;}
+
 /* NUM BAR */
-.nb{display:flex;gap:7px;padding:12px 15px 8px;overflow-x:auto;scrollbar-width:none;}
+.nb{display:flex;gap:7px;padding:8px 15px 8px;overflow-x:auto;scrollbar-width:none;}
 .nb::-webkit-scrollbar{display:none;}
 .nbb{min-width:36px;height:36px;border-radius:50%;border:2px solid;
      font-size:13px;font-weight:700;cursor:pointer;
@@ -157,6 +161,8 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
           border-radius:9px;font-size:15px;font-family:var(--fnt);
           background:var(--gr-lt);color:var(--tx);outline:none;transition:border-color .15s;}
 .fg input:focus{border-color:var(--g);background:#fff;}
+.fg input[readonly]{background:#e5e7eb;color:var(--tx2);cursor:not-allowed;}
+.fg input[readonly]:focus{border-color:var(--bd);background:#e5e7eb;}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
 /* PASSWORD FIELD con occhio */
@@ -296,22 +302,23 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
       <span class="pp-tit" id="entTit">Nuova rilevazione</span>
       <button class="btn-x" onclick="closeOv('ovEnt')">✕</button>
     </div>
+    <div class="tab-lbl">Settori</div>
     <div class="nb" id="numBar"></div>
     <div class="fb">
       <div class="fg"><label>Data</label><input type="date" id="fDate"></div>
       <div class="fr">
-        <div class="fg"><label>EC OUT</label><input type="number" step="0.01" id="fEcO" placeholder="es. 2.4"></div>
-        <div class="fg"><label>EC IN</label> <input type="number" step="0.01" id="fEcI" placeholder="es. 1.8"></div>
+        <div class="fg"><label>EC IN</label> <input type="number" step="0.01" id="fEcI"></div>
+        <div class="fg"><label>EC OUT</label><input type="number" step="0.01" id="fEcO"></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>pH OUT</label><input type="number" step="0.01" id="fPhO" placeholder="es. 6.2"></div>
-        <div class="fg"><label>pH IN</label> <input type="number" step="0.01" id="fPhI" placeholder="es. 5.8"></div>
+        <div class="fg"><label>pH IN</label> <input type="number" step="0.01" id="fPhI"></div>
+        <div class="fg"><label>pH OUT</label><input type="number" step="0.01" id="fPhO"></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>T. IRRIG °C</label><input type="number" step="0.1"  id="fTir" placeholder="es. 21.5"></div>
-        <div class="fg"><label>DRAIN</label>       <input type="number" step="0.01" id="fDrn" placeholder="es. 0.8"></div>
+        <div class="fg"><label>T. IRRIG °C</label><input type="number" step="0.1"  id="fTir"></div>
+        <div class="fg"><label>DRAIN</label>       <input type="number" step="0.01" id="fDrn"></div>
       </div>
-      <div class="fg"><label>% Drain</label><input type="number" step="0.1" id="fPrc" placeholder="es. 25.5"></div>
+      <div class="fg"><label>% Drain (auto)</label><input type="number" step="0.1" id="fPrc" readonly></div>
     </div>
     <div class="fa">
       <button class="btn btn-d" id="btnDel" onclick="askDel()">🗑 Elimina</button>
@@ -567,7 +574,16 @@ function switchTab(idx){
   loadFields(idx); refreshBar(); setActive(idx);
 }
 
+function calcPerc(){
+  const tir = parseFloat(document.getElementById('fTir').value);
+  const drn = parseFloat(document.getElementById('fDrn').value);
+  const out = (!isNaN(tir) && !isNaN(drn) && tir > 0)
+    ? (drn / tir * 100).toFixed(2) : '';
+  document.getElementById('fPrc').value = out;
+}
+
 function saveFields(idx){
+  calcPerc();
   tempTabs[idx] = {
     ecOut:  document.getElementById('fEcO').value,
     ecIn:   document.getElementById('fEcI').value,
@@ -586,7 +602,7 @@ function loadFields(idx){
   document.getElementById('fPhI').value = d.phIn   || '';
   document.getElementById('fTir').value = d.tIrrig || '';
   document.getElementById('fDrn').value = d.drain  || '';
-  document.getElementById('fPrc').value = d.perc   || '';
+  calcPerc();
 }
 
 function isFilled(d){
