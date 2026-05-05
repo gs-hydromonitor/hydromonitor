@@ -133,9 +133,16 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
        display:flex;align-items:center;justify-content:space-between;
        position:sticky;top:0;background:var(--card);z-index:10;}
 .pp-tit{font-size:16px;font-weight:800;}
+.pp-hd-l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+.save-chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;
+           display:inline-flex;align-items:center;gap:4px;
+           transition:background .2s,color .2s;white-space:nowrap;}
+.save-chip.editing{background:var(--am-lt);color:#92400e;}
+.save-chip.saved  {background:var(--g-lt); color:var(--g-dk);}
+.save-chip.idle   {background:transparent;color:transparent;}
 .btn-x{width:30px;height:30px;border-radius:50%;background:var(--gr-lt);
        border:none;font-size:15px;cursor:pointer;color:var(--gr);
-       display:flex;align-items:center;justify-content:center;}
+       display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
 /* TAB LABEL */
 .tab-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
@@ -299,7 +306,10 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 <div class="ov" id="ovEnt">
   <div class="pp">
     <div class="pp-hd">
-      <span class="pp-tit" id="entTit">Nuova rilevazione</span>
+      <div class="pp-hd-l">
+        <span class="pp-tit" id="entTit">Nuova rilevazione</span>
+        <span class="save-chip idle" id="saveChip"></span>
+      </div>
       <button class="btn-x" onclick="closeOv('ovEnt')">✕</button>
     </div>
     <div class="tab-lbl">Settori</div>
@@ -322,7 +332,6 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
     </div>
     <div class="fa">
       <button class="btn btn-d" id="btnDel" onclick="askDel()">🗑 Elimina</button>
-      <button class="btn btn-p" onclick="saveEntry()">💾 Salva</button>
     </div>
   </div>
 </div>
@@ -350,11 +359,13 @@ const FIDS  = ['fEcO','fEcI','fPhO','fPhI','fTir','fDrn','fPrc'];
 const FKEYS = ['ecOut','ecIn','phOut','phIn','tIrrig','drain','perc'];
 const SYNC_MS = 24 * 60 * 60 * 1000;
 
-let user     = null;
-let records  = [];
-let editId   = null;
-let curTab   = 1;
-let tempTabs = {};
+let user        = null;
+let records     = [];
+let editId      = null;
+let activeRecId = null;
+let saveTimer   = null;
+let curTab      = 1;
+let tempTabs    = {};
 
 const LS = {
   g: k  => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
@@ -537,7 +548,16 @@ function todayISO(){ return new Date().toISOString().split('T')[0]; }
 
 function openEntry(id){
   if(!user){ showToast('⚠️ Fai login prima'); return; }
-  editId = id; tempTabs = {};
+
+  // Se è una nuova rilevazione e ne esiste già una per oggi, apro quella
+  if(!id){
+    const today = todayISO();
+    const existing = records.find(r => r.username === user.username && r.date === today);
+    if(existing) id = existing.id;
+  }
+
+  editId = id; activeRecId = id; tempTabs = {};
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   const tabs = getTabList();
   curTab = tabs[0];
   buildNumBar(tabs);
@@ -545,17 +565,76 @@ function openEntry(id){
   if(id){
     const rec = records.find(r => r.id === id);
     document.getElementById('entTit').textContent = 'Modifica rilevazione';
-    document.getElementById('fDate').value = rec.date || todayISO();
-    curTab = tabs.includes(rec.activeTab) ? rec.activeTab : tabs[0];
-    tabs.forEach(i => { if(rec.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
-    document.getElementById('btnDel').style.display = '';
+    document.getElementById('fDate').value = rec?.date || todayISO();
+    curTab = tabs.includes(rec?.activeTab) ? rec.activeTab : tabs[0];
+    tabs.forEach(i => { if(rec?.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
+    setSaveState('saved');
   } else {
     document.getElementById('entTit').textContent = 'Nuova rilevazione';
     document.getElementById('fDate').value = todayISO();
-    document.getElementById('btnDel').style.display = 'none';
+    setSaveState('idle');
   }
+  document.getElementById('btnDel').style.display = '';
   loadFields(curTab); refreshBar(); setActive(curTab);
   openOv('ovEnt');
+}
+
+function setSaveState(state){
+  const chip = document.getElementById('saveChip');
+  if(!chip) return;
+  chip.classList.remove('editing','saved','idle');
+  if(state === 'editing'){
+    chip.classList.add('editing');
+    chip.textContent = '● Modifica…';
+  } else if(state === 'saved'){
+    chip.classList.add('saved');
+    chip.textContent = '✓ Salvato';
+  } else {
+    chip.classList.add('idle');
+    chip.textContent = '';
+  }
+}
+
+function scheduleAutoSave(){
+  setSaveState('editing');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { saveTimer = null; autoSave(); }, 600);
+}
+
+function autoSave(){
+  saveFields(curTab);
+  const tabs = getTabList();
+  const tabsData = {};
+  let hasData = false;
+  tabs.forEach(i => {
+    const t = tempTabs[i];
+    if(t){
+      tabsData[i] = t;
+      if(Object.values(t).some(v => v !== '' && v !== undefined && v !== null)) hasData = true;
+    }
+  });
+
+  const date = document.getElementById('fDate').value;
+  if(!date){ setSaveState('idle'); return; }
+
+  // Per nuove rilevazioni, non creo nulla finché non c'è almeno un dato
+  if(!activeRecId && !hasData){ setSaveState('idle'); return; }
+
+  if(activeRecId){
+    const idx = records.findIndex(r => r.id === activeRecId);
+    if(idx >= 0){
+      records[idx] = { ...records[idx], date, tabs: tabsData, activeTab: curTab, sent: false };
+    } else {
+      // Record sparito (eliminato fuori popup): ricreo
+      records.push({ id: activeRecId, date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
+    }
+  } else {
+    activeRecId = Date.now().toString();
+    editId = activeRecId;
+    records.push({ id: activeRecId, date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
+  }
+  LS.s('hm_records', records);
+  setSaveState('saved');
 }
 
 function buildNumBar(tabs){
@@ -572,6 +651,7 @@ function buildNumBar(tabs){
 function switchTab(idx){
   saveFields(curTab); curTab = idx;
   loadFields(idx); refreshBar(); setActive(idx);
+  scheduleAutoSave();
 }
 
 function calcPerc(){
@@ -621,45 +701,29 @@ function setActive(idx){
 }
 
 FIDS.forEach(id => {
-  document.getElementById(id).addEventListener('input', () => { saveFields(curTab); refreshBar(); });
+  document.getElementById(id).addEventListener('input', () => {
+    if(id === 'fTir' || id === 'fDrn') calcPerc();
+    saveFields(curTab); refreshBar(); scheduleAutoSave();
+  });
 });
-
-/* ─── SAVE ENTRY ────────────────────────────── */
-function saveEntry(){
-  saveFields(curTab);
-  const date = document.getElementById('fDate').value;
-  if(!date){ showToast('⚠️ Inserisci una data'); return; }
-
-  // Controlla duplicato in locale (solo per nuovi record)
-  if(!editId){
-    const dup = records.find(r => r.username === user.username && r.date === date);
-    if(dup){
-      showToast('⚠️ Rilevazione già presente per questa data');
-      closeOv('ovEnt'); return;
-    }
-  }
-
-  const tabs = getTabList();
-  const tabsData = {};
-  tabs.forEach(i => { if(tempTabs[i]) tabsData[i] = tempTabs[i]; });
-
-  if(editId){
-    const idx = records.findIndex(r => r.id === editId);
-    if(idx >= 0) records[idx] = { ...records[idx], date, tabs: tabsData, activeTab: curTab, sent: false };
-  } else {
-    records.push({ id: Date.now().toString(), date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
-  }
-  LS.s('hm_records', records);
-  tempTabs = {}; closeOv('ovEnt'); renderList();
-  showToast('✅ Salvato in locale');
-}
+document.getElementById('fDate').addEventListener('change', scheduleAutoSave);
 
 /* ─── DELETE ────────────────────────────────── */
-function askDel(){ openOv('ovDel'); }
+function askDel(){
+  // Se non c'è ancora nulla da eliminare, chiudo soltanto
+  if(!activeRecId){ closeOv('ovEnt'); return; }
+  openOv('ovDel');
+}
 function doDel(){
-  records = records.filter(r => r.id !== editId);
-  LS.s('hm_records', records);
-  closeOv('ovDel'); closeOv('ovEnt'); renderList();
+  if(activeRecId){
+    records = records.filter(r => r.id !== activeRecId);
+    LS.s('hm_records', records);
+  }
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
+  activeRecId = null; editId = null; tempTabs = {};
+  document.getElementById('ovDel').classList.remove('on');
+  document.getElementById('ovEnt').classList.remove('on');
+  renderList();
   showToast('🗑 Eliminata');
 }
 
@@ -687,7 +751,7 @@ function renderList(){
       <div class="rc-ft">
         ${sentLbl}
         <button class="bsm" onclick="openEntry('${rec.id}')">✏️ Modifica</button>
-        <button class="bsm blue" onclick="doSend('${rec.id}')" ${rec.sent?'disabled':''}>
+        <button class="bsm blue" data-send="${rec.id}" onclick="doSend('${rec.id}')" ${rec.sent?'disabled':''}>
           ${rec.sent ? '✓ Inviato' : '📤 Invia'}
         </button>
       </div>
@@ -705,61 +769,75 @@ function fmtD(d){
    Prima di inviare controlla online se esiste già
    una rilevazione per la stessa data nel foglio.
 ─────────────────────────────────────────────── */
+const _sending = new Set();
 async function doSend(id){
+  if(_sending.has(id)) return;
   if(!user){ showToast('⚠️ Fai login prima'); return; }
   if(!navigator.onLine){ showToast('📵 Nessuna connessione'); return; }
 
   const rec  = records.find(r => r.id === id);
-  if(!rec) return;
+  if(!rec || rec.sent) return;
 
-  const sid  = user.sheetid  || user.sheetId  || '';
-  const stab = user.sheettab || user.sheetTab || '';
-  const cols = (user.columns || 'Data,Tab,EC OUT,EC IN,pH OUT,pH IN,T.IRRIG,DRAIN,%')
-                 .split(',').map(s => s.trim());
+  _sending.add(id);
+  const lockBtns = () => document.querySelectorAll(`button[data-send="${id}"]`)
+                          .forEach(b => b.disabled = true);
+  const unlockBtns = () => document.querySelectorAll(`button[data-send="${id}"]`)
+                          .forEach(b => b.disabled = false);
+  lockBtns();
 
-  if(!sid || !stab){ showToast('⚠️ sheetId o sheetTab mancanti nel config'); return; }
+  try {
+    const sid  = user.sheetid  || user.sheetId  || '';
+    const stab = user.sheettab || user.sheetTab || '';
+    const cols = (user.columns || 'Data,Tab,EC OUT,EC IN,pH OUT,pH IN,T.IRRIG,DRAIN,%')
+                   .split(',').map(s => s.trim());
 
-  // ── Controllo duplicato ONLINE ──────────────
-  showToast('🔍 Verifico duplicati sul foglio…');
-  const checkUrl  = CONFIG_URL + '?action=checkDate&sheetId=' + encodeURIComponent(sid)
-                  + '&sheetTab=' + encodeURIComponent(stab)
-                  + '&date=' + encodeURIComponent(rec.date);
-  const chk = await jsonpCall(checkUrl, 10000);
+    if(!sid || !stab){ showToast('⚠️ sheetId o sheetTab mancanti nel config'); return; }
 
-  if(chk && chk.exists){
-    showToast('⚠️ Esiste già una rilevazione per ' + fmtD(rec.date) + ' nel foglio!');
-    return;
-  }
-  if(chk && chk.error && chk.error !== 'not_found'){
-    // Errore di rete nella verifica: avvisa ma lascia procedere
-    showToast('⚠️ Impossibile verificare duplicati — procedo comunque');
-  }
+    // ── Controllo duplicato ONLINE ──────────────
+    showToast('🔍 Verifico duplicati sul foglio…');
+    const checkUrl  = CONFIG_URL + '?action=checkDate&sheetId=' + encodeURIComponent(sid)
+                    + '&sheetTab=' + encodeURIComponent(stab)
+                    + '&date=' + encodeURIComponent(rec.date);
+    const chk = await jsonpCall(checkUrl, 10000);
 
-  // ── Invio righe ─────────────────────────────
-  showToast('📤 Invio in corso…');
-  const tabList = getTabList();
-  const rows    = tabList.map(i => {
-    const d   = rec.tabs?.[i] || {};
-    const map = {
-      'Data': rec.date, 'Tab': i,
-      'EC OUT': d.ecOut||'', 'EC IN': d.ecIn||'',
-      'pH OUT': d.phOut||'', 'pH IN': d.phIn||'',
-      'T.IRRIG': d.tIrrig||'', 'DRAIN': d.drain||'', '%': d.perc||''
-    };
-    return cols.map(c => map[c] !== undefined ? map[c] : '');
-  });
+    if(chk && chk.exists){
+      showToast('⚠️ Esiste già una rilevazione per ' + fmtD(rec.date) + ' nel foglio!');
+      return;
+    }
+    if(chk && chk.error && chk.error !== 'not_found'){
+      // Errore di rete nella verifica: avvisa ma lascia procedere
+      showToast('⚠️ Impossibile verificare duplicati — procedo comunque');
+    }
 
-  const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
-  const result  = await jsonpCall(CONFIG_URL + '?action=appendData&data=' + payload, 20000);
+    // ── Invio righe ─────────────────────────────
+    showToast('📤 Invio in corso…');
+    const tabList = getTabList();
+    const rows    = tabList.map(i => {
+      const d   = rec.tabs?.[i] || {};
+      const map = {
+        'Data': rec.date, 'Tab': i,
+        'EC OUT': d.ecOut||'', 'EC IN': d.ecIn||'',
+        'pH OUT': d.phOut||'', 'pH IN': d.phIn||'',
+        'T.IRRIG': d.tIrrig||'', 'DRAIN': d.drain||'', '%': d.perc||''
+      };
+      return cols.map(c => map[c] !== undefined ? map[c] : '');
+    });
 
-  if(result && result.ok){
-    // Auto-elimina dopo invio riuscito
-    records = records.filter(r => r.id !== id);
-    LS.s('hm_records', records);
-    renderList();
-    showToast('✅ Inviato ed eliminato dal locale!');
-  } else {
-    showToast('❌ ' + (result?.error || 'Errore sconosciuto'));
+    const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
+    const result  = await jsonpCall(CONFIG_URL + '?action=appendData&data=' + payload, 20000);
+
+    if(result && result.ok){
+      // Auto-elimina dopo invio riuscito
+      records = records.filter(r => r.id !== id);
+      LS.s('hm_records', records);
+      renderList();
+      showToast('✅ Inviato ed eliminato dal locale!');
+    } else {
+      showToast('❌ ' + (result?.error || 'Errore sconosciuto'));
+      unlockBtns();
+    }
+  } finally {
+    _sending.delete(id);
   }
 }
 
@@ -767,7 +845,14 @@ async function doSend(id){
 function openOv(id)  { document.getElementById(id).classList.add('on'); }
 function closeOv(id) {
   document.getElementById(id).classList.remove('on');
-  if(id === 'ovEnt') tempTabs = {};
+  if(id === 'ovEnt'){
+    // Flush eventuale auto-save in attesa
+    if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; autoSave(); }
+    const saved = !!activeRecId;
+    activeRecId = null; editId = null; tempTabs = {};
+    renderList();
+    if(saved) showToast('✅ Salvato');
+  }
   if(id === 'ovLg')  kbDown();
 }
 document.querySelectorAll('.ov').forEach(o => {
