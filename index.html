@@ -144,6 +144,9 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .btn-x{width:30px;height:30px;border-radius:50%;background:var(--gr-lt);
        border:none;font-size:15px;cursor:pointer;color:var(--gr);
        display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.btn-x.ok{width:36px;height:36px;background:var(--g);color:#fff;
+          box-shadow:0 2px 6px rgba(45,138,78,.4);transition:transform .15s;}
+.btn-x.ok:active{transform:scale(.92);}
 
 /* TAB LABEL */
 .tab-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
@@ -311,7 +314,9 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
         <span class="pp-tit" id="entTit">Nuova rilevazione</span>
         <span class="save-chip idle" id="saveChip"></span>
       </div>
-      <button class="btn-x" onclick="closeOv('ovEnt')">✕</button>
+      <button class="btn-x ok" onclick="closeOv('ovEnt')" aria-label="Conferma e chiudi">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>
     </div>
     <div class="tab-lbl">Settori</div>
     <div class="nb" id="numBar"></div>
