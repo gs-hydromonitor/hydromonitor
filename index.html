@@ -134,7 +134,7 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
        position:sticky;top:0;background:var(--card);z-index:10;}
 .pp-tit{font-size:16px;font-weight:800;}
 .pp-hd-l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
-.save-chip{font-size:14px;font-weight:800;padding:7px 14px;border-radius:20px;
+.save-chip{font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;
            display:inline-flex;align-items:center;gap:5px;
            transition:background .2s,color .2s;white-space:nowrap;
            letter-spacing:.01em;}
@@ -599,8 +599,7 @@ function setSaveState(state){
 function scheduleAutoSave(){
   setSaveState('editing');
   clearTimeout(saveTimer);
-  // Salvataggio istantaneo: yield di un frame solo per far apparire la chip "Modifica"
-  saveTimer = setTimeout(() => { saveTimer = null; autoSave(); }, 80);
+  saveTimer = setTimeout(() => { saveTimer = null; autoSave(); }, 300);
 }
 
 function autoSave(){
