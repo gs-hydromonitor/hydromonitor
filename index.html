@@ -155,27 +155,31 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
          color:var(--tx2);padding:14px 15px 0;}
 
 /* CALENDAR */
-#ovCal .pp.m{max-width:380px;max-height:96vh;display:flex;flex-direction:column;
-             overflow:hidden;}
-#ovCal .pp-hd{padding:11px 14px 9px;}
+#ovCal .pp.m{max-width:420px;height:92vh;max-height:92vh;
+             display:flex;flex-direction:column;overflow:hidden;}
+#ovCal .pp-hd{padding:13px 15px 10px;flex-shrink:0;}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;
-         padding:8px 12px 2px;gap:8px;flex-shrink:0;}
-.cal-arr{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--bd);
-         background:var(--card);cursor:pointer;font-size:11px;color:var(--tx);
+         padding:10px 14px 4px;gap:10px;flex-shrink:0;}
+.cal-arr{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--bd);
+         background:var(--card);cursor:pointer;font-size:13px;color:var(--tx);
          display:flex;align-items:center;justify-content:center;font-family:var(--fnt);
          flex-shrink:0;}
 .cal-arr:disabled{opacity:.3;cursor:not-allowed;}
 .cal-arr:active:not(:disabled){transform:scale(.92);}
-.cal-month{font-size:14px;font-weight:800;text-transform:capitalize;
+.cal-month{font-size:15px;font-weight:800;text-transform:capitalize;
            text-align:center;flex:1;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;
-          padding:2px 10px 4px;flex-shrink:0;}
-.cal-dow{font-size:10px;font-weight:700;color:var(--tx2);text-align:center;
-         padding:3px 0 1px;text-transform:uppercase;letter-spacing:.04em;}
-.cal-day{aspect-ratio:1;max-height:clamp(30px, 7.2vh, 48px);
-         border-radius:7px;border:1.5px solid transparent;
+.cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+             padding:6px 14px 2px;flex-shrink:0;}
+.cal-dow{font-size:11px;font-weight:700;color:var(--tx2);text-align:center;
+         padding:4px 0 2px;text-transform:uppercase;letter-spacing:.05em;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+          padding:4px 14px 12px;flex:1;overflow-y:auto;align-content:start;
+          -webkit-overflow-scrolling:touch;}
+.cal-grid::-webkit-scrollbar{width:5px;}
+.cal-grid::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
+.cal-day{aspect-ratio:1;border-radius:9px;border:2px solid transparent;
          display:flex;align-items:center;justify-content:center;
-         font-size:clamp(11px, 3vw, 14px);font-weight:700;cursor:pointer;
+         font-size:15px;font-weight:700;cursor:pointer;
          background:var(--gr-lt);color:var(--tx);transition:transform .1s;}
 .cal-day:active{transform:scale(.92);}
 .cal-day.empty{visibility:hidden;}
@@ -184,12 +188,12 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .cal-day.r{background:var(--r-lt);color:var(--r);border-color:#fca5a5;}
 .cal-day.o{background:var(--am-lt);color:#92400e;border-color:#fcd34d;}
 .cal-day.g{background:var(--g-lt);color:var(--g-dk);border-color:#86efac;}
-.cal-day.today{box-shadow:0 0 0 2px var(--g-dk);}
-.cal-legend{display:flex;justify-content:center;gap:14px;padding:8px 12px 12px;
-            border-top:1px solid var(--bd);font-size:11px;color:var(--tx2);font-weight:600;
+.cal-day.today{box-shadow:0 0 0 2.5px var(--g-dk);}
+.cal-legend{display:flex;justify-content:center;gap:16px;padding:10px 14px 14px;
+            border-top:1px solid var(--bd);font-size:12px;color:var(--tx2);font-weight:600;
             flex-wrap:wrap;flex-shrink:0;}
-.cal-legend span{display:flex;align-items:center;gap:5px;}
-.cd{width:12px;height:12px;border-radius:3px;display:inline-block;}
+.cal-legend span{display:flex;align-items:center;gap:6px;}
+.cd{width:14px;height:14px;border-radius:4px;display:inline-block;}
 .cd.g{background:var(--g-lt);border:1.5px solid #86efac;}
 .cd.o{background:var(--am-lt);border:1.5px solid #fcd34d;}
 .cd.r{background:var(--r-lt);border:1.5px solid #fca5a5;}
@@ -365,6 +369,11 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
       <span class="cal-month" id="calMonth"></span>
       <button class="cal-arr" id="calNext" onclick="navMonth(1)">▶</button>
     </div>
+    <div class="cal-dow-row">
+      <div class="cal-dow">L</div><div class="cal-dow">M</div><div class="cal-dow">M</div>
+      <div class="cal-dow">G</div><div class="cal-dow">V</div><div class="cal-dow">S</div>
+      <div class="cal-dow">D</div>
+    </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-legend">
       <span><span class="cd g"></span> Completo</span>
@@ -474,6 +483,9 @@ async function init(){
   checkOnline();
   window.addEventListener('online',  () => { checkOnline(); triggerSync(); refreshRemoteCache(); });
   window.addEventListener('offline', () => checkOnline());
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && user && navigator.onLine) refreshRemoteCache();
+  });
   await triggerSync();
   if(user) refreshRemoteCache();
 }
@@ -692,9 +704,7 @@ function renderCalendar(){
   document.getElementById('calMonth').textContent =
     `${months[calMonth.getMonth()]} ${calMonth.getFullYear()}`;
 
-  const dows = ['L','M','M','G','V','S','D'];
-  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
-
+  let html = '';
   const firstDay = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1);
   const lastDay  = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0);
   const startCol = (firstDay.getDay() + 6) % 7; // Lun = 0
@@ -727,6 +737,12 @@ function renderCalendar(){
 
   const prevMonthLast = new Date(calMonth); prevMonthLast.setDate(0);
   document.getElementById('calPrev').disabled = prevMonthLast < minDate;
+
+  // Auto-scroll su "oggi" se presente
+  setTimeout(() => {
+    const t = document.querySelector('.cal-day.today');
+    if(t) t.scrollIntoView({block:'center', behavior:'instant'});
+  }, 30);
 }
 
 function getDateStatus(dStr){
@@ -746,26 +762,54 @@ function getDateStatus(dStr){
   return 'r';
 }
 
-function pickDate(dStr){
-  // Record locale già esistente -> apro in modifica
+async function pickDate(dStr){
+  // Record locale già esistente -> apro in modifica (funziona offline)
   const local = records.find(r => r.username === user.username && r.date === dStr);
   if(local){
     closeOv('ovCal');
     openEntry(local.id);
     return;
   }
-  // Record solo remoto -> conferma modifica
+
+  // Verifico se in cache risulta dato remoto per quel giorno
   const cache = LS.g('hm_remote_cache');
-  const remote = cache?.records?.[dStr];
-  if(remote){
-    pendingEditDate = dStr;
-    pendingEditData = remote;
-    document.getElementById('ovEditAsk').classList.add('on');
+  const cached = cache?.records?.[dStr];
+
+  if(!cached){
+    // Vuoto -> nuova rilevazione (funziona offline, sarà inviata quando torna online)
+    closeOv('ovCal');
+    openEntry(null, dStr);
     return;
   }
-  // Vuoto -> nuova rilevazione per quel giorno
-  closeOv('ovCal');
-  openEntry(null, dStr);
+
+  // Dato remoto: la modifica richiede connessione e dati freschi dal foglio
+  if(!navigator.onLine){
+    showToast('📵 Modifica disponibile solo online');
+    return;
+  }
+
+  showToast('🔍 Carico dati dal foglio…');
+  const fresh = await fetchSingleDay(dStr);
+  if(!fresh){
+    showToast('⚠️ Impossibile caricare i dati — riprova');
+    return;
+  }
+  pendingEditDate = dStr;
+  pendingEditData = fresh;
+  document.getElementById('ovEditAsk').classList.add('on');
+}
+
+async function fetchSingleDay(dStr){
+  const sid  = user.sheetid  || user.sheetId  || '';
+  const stab = user.sheettab || user.sheetTab || '';
+  if(!sid || !stab) return null;
+  const url = CONFIG_URL + '?action=getRange'
+            + '&sheetId='  + encodeURIComponent(sid)
+            + '&sheetTab=' + encodeURIComponent(stab)
+            + '&fromDate=' + encodeURIComponent(dStr)
+            + '&toDate='   + encodeURIComponent(dStr);
+  const res = await jsonpCall(url, 12000);
+  return (res && res.ok && res.records?.[dStr]) ? res.records[dStr] : null;
 }
 
 function confirmEditRemote(){
