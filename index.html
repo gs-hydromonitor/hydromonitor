@@ -110,10 +110,12 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .empty p{font-size:14px;line-height:1.7;}
 
 /* FAB */
-.fab{position:fixed;bottom:26px;right:20px;width:56px;height:56px;border-radius:50%;
-     background:var(--g);color:#fff;font-size:28px;border:none;cursor:pointer;
-     box-shadow:0 4px 18px rgba(45,138,78,.5);display:flex;align-items:center;
-     justify-content:center;z-index:200;transition:all .2s;}
+.fab{position:fixed;bottom:26px;right:20px;width:60px;height:60px;border-radius:50%;
+     background:linear-gradient(135deg, var(--g) 0%, var(--g) 50%, #f59e0b 50%, #f59e0b 100%);
+     color:#fff;border:none;cursor:pointer;
+     box-shadow:0 4px 18px rgba(45,138,78,.45);display:flex;align-items:center;
+     justify-content:center;z-index:200;transition:all .2s;padding:0;}
+.fab svg{width:26px;height:26px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
 .fab:active{transform:scale(.9);}
 .fab:disabled{background:#9ca3af;box-shadow:none;cursor:not-allowed;opacity:.7;}
 
@@ -151,6 +153,37 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 /* TAB LABEL */
 .tab-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
          color:var(--tx2);padding:14px 15px 0;}
+
+/* CALENDAR */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;}
+.cal-arr{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--bd);
+         background:var(--card);cursor:pointer;font-size:14px;color:var(--tx);
+         display:flex;align-items:center;justify-content:center;font-family:var(--fnt);}
+.cal-arr:disabled{opacity:.3;cursor:not-allowed;}
+.cal-arr:active:not(:disabled){transform:scale(.92);}
+.cal-month{font-size:15px;font-weight:800;text-transform:capitalize;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:4px 14px 12px;}
+.cal-dow{font-size:10px;font-weight:700;color:var(--tx2);text-align:center;
+         padding:6px 0;text-transform:uppercase;letter-spacing:.04em;}
+.cal-day{aspect-ratio:1;border-radius:10px;border:2px solid transparent;
+         display:flex;align-items:center;justify-content:center;
+         font-size:14px;font-weight:700;cursor:pointer;
+         background:var(--gr-lt);color:var(--tx);transition:transform .1s;}
+.cal-day:active{transform:scale(.92);}
+.cal-day.empty{visibility:hidden;}
+.cal-day.dis{opacity:.35;cursor:not-allowed;background:transparent;
+             border:1.5px dashed var(--bd);color:var(--tx2);}
+.cal-day.r{background:var(--r-lt);color:var(--r);border-color:#fca5a5;}
+.cal-day.o{background:var(--am-lt);color:#92400e;border-color:#fcd34d;}
+.cal-day.g{background:var(--g-lt);color:var(--g-dk);border-color:#86efac;}
+.cal-day.today{box-shadow:0 0 0 2px var(--g-dk);}
+.cal-legend{display:flex;justify-content:space-around;padding:12px 14px 18px;
+            border-top:1px solid var(--bd);font-size:11px;color:var(--tx2);font-weight:600;}
+.cal-legend span{display:flex;align-items:center;gap:5px;}
+.cd{width:14px;height:14px;border-radius:4px;display:inline-block;}
+.cd.g{background:var(--g-lt);border:1.5px solid #86efac;}
+.cd.o{background:var(--am-lt);border:1.5px solid #fcd34d;}
+.cd.r{background:var(--r-lt);border:1.5px solid #fca5a5;}
 
 /* NUM BAR */
 .nb{display:flex;gap:7px;padding:8px 15px 8px;overflow-x:auto;scrollbar-width:none;}
@@ -269,7 +302,12 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 </div>
 
 <!-- FAB -->
-<button class="fab" id="fab" disabled onclick="openEntry(null)">+</button>
+<button class="fab" id="fab" disabled onclick="openCalendar()" aria-label="Nuova rilevazione">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20h9"/>
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </svg>
+</button>
 <div class="toast" id="toast"></div>
 
 <!-- ══ OVERLAY LOGIN ══ -->
@@ -302,6 +340,39 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
     <div class="fa" id="lgBtns">
       <button class="btn btn-d" id="btnLogout" onclick="doLogout()" style="display:none;">🚪 Esci</button>
       <button class="btn btn-p" onclick="doLogin()">Accedi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OVERLAY CALENDARIO ══ -->
+<div class="ov c" id="ovCal">
+  <div class="pp m">
+    <div class="pp-hd">
+      <span class="pp-tit">📅 Scegli giorno</span>
+      <button class="btn-x" onclick="closeOv('ovCal')">✕</button>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-arr" id="calPrev" onclick="navMonth(-1)">◀</button>
+      <span class="cal-month" id="calMonth"></span>
+      <button class="cal-arr" id="calNext" onclick="navMonth(1)">▶</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legend">
+      <span><span class="cd g"></span> Completo</span>
+      <span><span class="cd o"></span> Parziale</span>
+      <span><span class="cd r"></span> Vuoto</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OVERLAY CONFERMA MODIFICA REMOTO ══ -->
+<div class="ov c" id="ovEditAsk">
+  <div class="dlg">
+    <h3>✏️ Modifica rilevazione inviata</h3>
+    <p>Esiste già una rilevazione inviata al database per questa data. Vuoi modificarla?</p>
+    <div class="dlg-row">
+      <button class="btn btn-s" onclick="cancelEditRemote()">Annulla</button>
+      <button class="btn btn-p" onclick="confirmEditRemote()">Modifica</button>
     </div>
   </div>
 </div>
@@ -372,6 +443,11 @@ let activeRecId = null;
 let saveTimer   = null;
 let curTab      = 1;
 let tempTabs    = {};
+let isRemoteEdit = false;       // true se popup sta editando dati già nel foglio
+let remoteEditOrigDate = null;  // data originale del record remoto in modifica
+let calMonth   = null;          // primo del mese visualizzato nel calendario
+let pendingEditDate = null;     // data scelta da calendario in attesa di conferma
+let pendingEditData = null;     // payload remoto in attesa di conferma
 
 const LS = {
   g: k  => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
@@ -387,9 +463,40 @@ async function init(){
   if(saved){ user = saved; applyLogin(); }
   renderList();
   checkOnline();
-  window.addEventListener('online',  () => { checkOnline(); triggerSync(); });
+  window.addEventListener('online',  () => { checkOnline(); triggerSync(); refreshRemoteCache(); });
   window.addEventListener('offline', () => checkOnline());
   await triggerSync();
+  if(user) refreshRemoteCache();
+}
+
+/* ─── REMOTE CACHE (ultimi 31 giorni) ──────── */
+async function refreshRemoteCache(){
+  if(!user || !navigator.onLine) return;
+  const sid  = user.sheetid  || user.sheetId  || '';
+  const stab = user.sheettab || user.sheetTab || '';
+  if(!sid || !stab) return;
+
+  const today    = new Date();
+  const monthAgo = new Date(today); monthAgo.setDate(monthAgo.getDate() - 31);
+  const fromISO  = monthAgo.toISOString().split('T')[0];
+  const toISO    = today.toISOString().split('T')[0];
+
+  const url = CONFIG_URL + '?action=getRange'
+            + '&sheetId='  + encodeURIComponent(sid)
+            + '&sheetTab=' + encodeURIComponent(stab)
+            + '&fromDate=' + encodeURIComponent(fromISO)
+            + '&toDate='   + encodeURIComponent(toISO);
+
+  const res = await jsonpCall(url, 15000);
+  if(res && res.ok && res.records){
+    LS.s('hm_remote_cache', {
+      username:  user.username,
+      fromDate:  fromISO,
+      toDate:    toISO,
+      records:   res.records,
+      updatedAt: Date.now()
+    });
+  }
 }
 
 function checkOnline(){
@@ -498,6 +605,7 @@ function doLogin(){
     closeOv('ovLg');
     showToast('✅ Benvenuto, ' + u + '!');
     renderList();
+    refreshRemoteCache();
   } else {
     document.getElementById('liErr').style.display = 'block';
   }
@@ -552,32 +660,152 @@ function kbDown(){
 /* ─── ENTRY POPUP ───────────────────────────── */
 function todayISO(){ return new Date().toISOString().split('T')[0]; }
 
-function openEntry(id){
+/* ─── CALENDARIO ────────────────────────────── */
+async function openCalendar(){
+  if(!user){ showToast('⚠️ Fai login prima'); return; }
+  const today = new Date();
+  calMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  renderCalendar();
+  openOv('ovCal');
+  // Refresh in background, poi ridisegno i colori
+  await refreshRemoteCache();
+  if(document.getElementById('ovCal').classList.contains('on')) renderCalendar();
+}
+
+function navMonth(delta){
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1);
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const months = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
+                  'luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  document.getElementById('calMonth').textContent =
+    `${months[calMonth.getMonth()]} ${calMonth.getFullYear()}`;
+
+  const dows = ['L','M','M','G','V','S','D'];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+  const firstDay = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1);
+  const lastDay  = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0);
+  const startCol = (firstDay.getDay() + 6) % 7; // Lun = 0
+  for(let i = 0; i < startCol; i++) html += '<div class="cal-day empty"></div>';
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() - 31);
+  const todayStr = todayISO();
+
+  for(let d = 1; d <= lastDay.getDate(); d++){
+    const dt = new Date(calMonth.getFullYear(), calMonth.getMonth(), d);
+    const dStr = `${calMonth.getFullYear()}-${String(calMonth.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cls = ['cal-day'];
+    const disabled = dt > today || dt < minDate;
+    if(disabled){
+      cls.push('dis');
+      html += `<div class="${cls.join(' ')}">${d}</div>`;
+      continue;
+    }
+    cls.push(getDateStatus(dStr));
+    if(dStr === todayStr) cls.push('today');
+    html += `<div class="${cls.join(' ')}" onclick="pickDate('${dStr}')">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+
+  // Disabilita frecce fuori range
+  const next = new Date(calMonth); next.setMonth(next.getMonth() + 1);
+  document.getElementById('calNext').disabled = next > today;
+
+  const prevMonthLast = new Date(calMonth); prevMonthLast.setDate(0);
+  document.getElementById('calPrev').disabled = prevMonthLast < minDate;
+}
+
+function getDateStatus(dStr){
+  if(!user) return 'r';
+  const tabs = getTabList();
+  // 1) Record locale (non ancora inviato)
+  const local = records.find(r => r.username === user.username && r.date === dStr);
+  if(local){
+    return tabs.every(i => isFilled(local.tabs?.[i])) ? 'g' : 'o';
+  }
+  // 2) Cache remota
+  const cache = LS.g('hm_remote_cache');
+  if(cache && cache.username === user.username && cache.records?.[dStr]){
+    const rec = cache.records[dStr];
+    return tabs.every(i => isFilled(rec.tabs?.[i])) ? 'g' : 'o';
+  }
+  return 'r';
+}
+
+function pickDate(dStr){
+  // Record locale già esistente -> apro in modifica
+  const local = records.find(r => r.username === user.username && r.date === dStr);
+  if(local){
+    closeOv('ovCal');
+    openEntry(local.id);
+    return;
+  }
+  // Record solo remoto -> conferma modifica
+  const cache = LS.g('hm_remote_cache');
+  const remote = cache?.records?.[dStr];
+  if(remote){
+    pendingEditDate = dStr;
+    pendingEditData = remote;
+    document.getElementById('ovEditAsk').classList.add('on');
+    return;
+  }
+  // Vuoto -> nuova rilevazione per quel giorno
+  closeOv('ovCal');
+  openEntry(null, dStr);
+}
+
+function confirmEditRemote(){
+  document.getElementById('ovEditAsk').classList.remove('on');
+  closeOv('ovCal');
+  openEntry(null, pendingEditDate, pendingEditData);
+  pendingEditDate = null; pendingEditData = null;
+}
+function cancelEditRemote(){
+  document.getElementById('ovEditAsk').classList.remove('on');
+  pendingEditDate = null; pendingEditData = null;
+}
+
+function openEntry(id, prefillDate, remoteData){
   if(!user){ showToast('⚠️ Fai login prima'); return; }
 
-  // Se è una nuova rilevazione e ne esiste già una per oggi, apro quella
-  if(!id){
+  // Se è una nuova rilevazione su oggi senza prefill, e ne esiste già una in locale, apro quella
+  if(!id && !prefillDate && !remoteData){
     const today = todayISO();
     const existing = records.find(r => r.username === user.username && r.date === today);
     if(existing) id = existing.id;
   }
 
   editId = id; activeRecId = id; tempTabs = {};
+  isRemoteEdit = !!remoteData;
+  remoteEditOrigDate = remoteData ? prefillDate : null;
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   const tabs = getTabList();
   curTab = tabs[0];
   buildNumBar(tabs);
 
-  if(id){
+  if(remoteData){
+    // Pre-compila da cache remota (modifica record già inviato)
+    document.getElementById('entTit').textContent = 'Modifica rilevazione inviata';
+    document.getElementById('fDate').value = prefillDate;
+    Object.entries(remoteData.tabs || {}).forEach(([i, d]) => {
+      tempTabs[i] = {...d};
+    });
+    if(remoteData.activeTab && tabs.includes(remoteData.activeTab)) curTab = remoteData.activeTab;
+    setSaveState('saved');
+  } else if(id){
     const rec = records.find(r => r.id === id);
-    document.getElementById('entTit').textContent = 'Modifica rilevazione';
+    document.getElementById('entTit').textContent = rec?.isEdit ? 'Modifica rilevazione inviata' : 'Modifica rilevazione';
     document.getElementById('fDate').value = rec?.date || todayISO();
     curTab = tabs.includes(rec?.activeTab) ? rec.activeTab : tabs[0];
     tabs.forEach(i => { if(rec?.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
     setSaveState('saved');
   } else {
     document.getElementById('entTit').textContent = 'Nuova rilevazione';
-    document.getElementById('fDate').value = todayISO();
+    document.getElementById('fDate').value = prefillDate || todayISO();
     setSaveState('idle');
   }
   document.getElementById('btnDel').style.display = '';
@@ -632,12 +860,16 @@ function autoSave(){
       records[idx] = { ...records[idx], date, tabs: tabsData, activeTab: curTab, sent: false };
     } else {
       // Record sparito (eliminato fuori popup): ricreo
-      records.push({ id: activeRecId, date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
+      const rec = { id: activeRecId, date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username };
+      if(isRemoteEdit){ rec.isEdit = true; rec.originalDate = remoteEditOrigDate; }
+      records.push(rec);
     }
   } else {
     activeRecId = Date.now().toString();
     editId = activeRecId;
-    records.push({ id: activeRecId, date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username });
+    const rec = { id: activeRecId, date, tabs: tabsData, sent: false, activeTab: curTab, username: user.username };
+    if(isRemoteEdit){ rec.isEdit = true; rec.originalDate = remoteEditOrigDate; }
+    records.push(rec);
   }
   LS.s('hm_records', records);
   setSaveState('saved');
@@ -749,8 +981,13 @@ function renderList(){
       if(!ok) ag = false;
       return `<div class="td ${ok?'g':'r'}">${i}</div>`;
     });
-    const pill    = ag ? '<span class="pill pg">✓ Completo</span>' : '<span class="pill pr">⚠ Incompleto</span>';
-    const sentLbl = rec.sent ? '<span class="sent-lbl s">✓ Inviato</span>' : '<span class="sent-lbl">Non inviato</span>';
+    const pill    = rec.isEdit ? '<span class="pill" style="background:#fef3c7;color:#92400e">✏️ Modifica</span>'
+                  : ag           ? '<span class="pill pg">✓ Completo</span>'
+                                 : '<span class="pill pr">⚠ Incompleto</span>';
+    const sentLbl = rec.sent ? '<span class="sent-lbl s">✓ Inviato</span>'
+                  : rec.isEdit ? '<span class="sent-lbl">Da aggiornare sul foglio</span>'
+                  : '<span class="sent-lbl">Non inviato</span>';
+    const sendLabel = rec.sent ? '✓ Inviato' : (rec.isEdit ? '📤 Aggiorna' : '📤 Invia');
     return `<div class="rc ${ag?'ag':'hr'}">
       <div class="rc-top"><div class="rc-date">📅 ${fmtD(rec.date)}</div>${pill}</div>
       <div class="tdots">${dots.join('')}</div>
@@ -758,7 +995,7 @@ function renderList(){
         ${sentLbl}
         <button class="bsm" onclick="openEntry('${rec.id}')">✏️ Modifica</button>
         <button class="bsm blue" data-send="${rec.id}" onclick="doSend('${rec.id}')" ${rec.sent?'disabled':''}>
-          ${rec.sent ? '✓ Inviato' : '📤 Invia'}
+          ${sendLabel}
         </button>
       </div>
     </div>`;
@@ -799,24 +1036,6 @@ async function doSend(id){
 
     if(!sid || !stab){ showToast('⚠️ sheetId o sheetTab mancanti nel config'); return; }
 
-    // ── Controllo duplicato ONLINE ──────────────
-    showToast('🔍 Verifico duplicati sul foglio…');
-    const checkUrl  = CONFIG_URL + '?action=checkDate&sheetId=' + encodeURIComponent(sid)
-                    + '&sheetTab=' + encodeURIComponent(stab)
-                    + '&date=' + encodeURIComponent(rec.date);
-    const chk = await jsonpCall(checkUrl, 10000);
-
-    if(chk && chk.exists){
-      showToast('⚠️ Esiste già una rilevazione per ' + fmtD(rec.date) + ' nel foglio!');
-      return;
-    }
-    if(chk && chk.error && chk.error !== 'not_found'){
-      // Errore di rete nella verifica: avvisa ma lascia procedere
-      showToast('⚠️ Impossibile verificare duplicati — procedo comunque');
-    }
-
-    // ── Invio righe ─────────────────────────────
-    showToast('📤 Invio in corso…');
     const tabList = getTabList();
     const rows    = tabList.map(i => {
       const d   = rec.tabs?.[i] || {};
@@ -829,15 +1048,43 @@ async function doSend(id){
       return cols.map(c => map[c] !== undefined ? map[c] : '');
     });
 
-    const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
-    const result  = await jsonpCall(CONFIG_URL + '?action=appendData&data=' + payload, 20000);
+    let result;
+    if(rec.isEdit){
+      // ── Aggiorna record già nel foglio ─────────
+      showToast('📤 Aggiornamento in corso…');
+      const payload = encodeURIComponent(JSON.stringify({
+        sheetId: sid, sheetTab: stab,
+        date: rec.originalDate || rec.date,
+        rows
+      }));
+      result = await jsonpCall(CONFIG_URL + '?action=updateRecord&data=' + payload, 20000);
+    } else {
+      // ── Controllo duplicato ONLINE ─────────────
+      showToast('🔍 Verifico duplicati sul foglio…');
+      const checkUrl  = CONFIG_URL + '?action=checkDate&sheetId=' + encodeURIComponent(sid)
+                      + '&sheetTab=' + encodeURIComponent(stab)
+                      + '&date=' + encodeURIComponent(rec.date);
+      const chk = await jsonpCall(checkUrl, 10000);
+      if(chk && chk.exists){
+        showToast('⚠️ Esiste già una rilevazione per ' + fmtD(rec.date) + ' nel foglio!');
+        return;
+      }
+      if(chk && chk.error && chk.error !== 'not_found'){
+        showToast('⚠️ Impossibile verificare duplicati — procedo comunque');
+      }
+      // ── Invio righe ───────────────────────────
+      showToast('📤 Invio in corso…');
+      const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
+      result = await jsonpCall(CONFIG_URL + '?action=appendData&data=' + payload, 20000);
+    }
 
     if(result && result.ok){
-      // Auto-elimina dopo invio riuscito
       records = records.filter(r => r.id !== id);
       LS.s('hm_records', records);
       renderList();
-      showToast('✅ Inviato ed eliminato dal locale!');
+      showToast(rec.isEdit ? '✅ Aggiornato!' : '✅ Inviato ed eliminato dal locale!');
+      // Aggiorna cache remota
+      refreshRemoteCache();
     } else {
       showToast('❌ ' + (result?.error || 'Errore sconosciuto'));
       unlockBtns();
@@ -856,6 +1103,7 @@ function closeOv(id) {
     if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; autoSave(); }
     const saved = !!activeRecId;
     activeRecId = null; editId = null; tempTabs = {};
+    isRemoteEdit = false; remoteEditOrigDate = null;
     renderList();
     if(saved) showToast('✅ Salvato');
   }
