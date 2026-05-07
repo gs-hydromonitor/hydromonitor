@@ -258,6 +258,16 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .home-cal{background:var(--card);border-radius:var(--rad);overflow:hidden;
           box-shadow:var(--sh);border:1px solid var(--bd);
           -webkit-overflow-scrolling:touch;}
+.cal-load-more{display:flex;align-items:center;justify-content:center;gap:8px;
+               width:100%;padding:13px 14px;border:none;
+               background:linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+               color:var(--g-dk);font-size:12px;font-weight:800;
+               cursor:pointer;border-bottom:1px solid var(--bd);
+               font-family:var(--fnt);text-transform:uppercase;
+               letter-spacing:.05em;transition:background .15s;}
+.cal-load-more svg{width:14px;height:14px;}
+.cal-load-more:active{background:#e5e7eb;}
+
 .cal-month-hd{position:sticky;top:0;z-index:2;
               background:linear-gradient(180deg, #f9fafb 70%, rgba(249,250,251,0));
               font-size:12px;font-weight:800;text-transform:uppercase;
@@ -600,12 +610,66 @@ let isRemoteEdit = false;       // true se popup sta editando dati già nel fogl
 let remoteEditOrigDate = null;  // data originale del record remoto in modifica
 let pendingEditDate = null;     // data scelta da calendario in attesa di conferma
 let pendingEditData = null;     // payload remoto in attesa di conferma
+let calExpanded = false;        // false = solo 7 giorni, true = 31 giorni
 
 const LS = {
   g: k  => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } },
   s: (k,v) => localStorage.setItem(k, JSON.stringify(v)),
   r: k  => localStorage.removeItem(k)
 };
+
+/* ─── INDEXEDDB (queue di invii in attesa, condivisa con il SW) ── */
+const HM_DB_NAME  = 'hm-db';
+const HM_DB_STORE = 'pending';
+let _hmDb = null;
+function hmOpenDB(){
+  return new Promise((resolve, reject) => {
+    if(_hmDb) return resolve(_hmDb);
+    const req = indexedDB.open(HM_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(HM_DB_STORE)){
+        db.createObjectStore(HM_DB_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => { _hmDb = req.result; resolve(_hmDb); };
+    req.onerror   = () => reject(req.error);
+  });
+}
+async function hmPendingPut(item){
+  const db = await hmOpenDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(HM_DB_STORE, 'readwrite');
+    tx.objectStore(HM_DB_STORE).put(item);
+    tx.oncomplete = () => res();
+    tx.onerror    = () => rej(tx.error);
+  });
+}
+async function hmPendingHas(id){
+  const db = await hmOpenDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(HM_DB_STORE, 'readonly');
+    const r = tx.objectStore(HM_DB_STORE).get(id);
+    r.onsuccess = () => res(!!r.result);
+    r.onerror   = () => rej(r.error);
+  });
+}
+async function hmPendingDelete(id){
+  const db = await hmOpenDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(HM_DB_STORE, 'readwrite');
+    tx.objectStore(HM_DB_STORE).delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror    = () => rej(tx.error);
+  });
+}
+async function registerBgSync(){
+  if(!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if('sync' in reg) await reg.sync.register('hm-pending-send');
+  } catch(e){ /* iOS Safari: niente Background Sync, useremo retry on open */ }
+}
 
 /* ─── INIT ─────────────────────────────────── */
 async function init(){
@@ -616,6 +680,9 @@ async function init(){
   setupCalendarInteractions();
   renderHomeCalendar();
   checkOnline();
+  // Riconcilia: i record con waitingConnection che NON sono più nella IDB queue
+  // sono stati inviati dal SW in background → rimuovili dal locale
+  reconcilePendingFromSW();
   window.addEventListener('online',  () => {
     checkOnline(); triggerSync(); refreshRemoteCache(); retryWaitingSends();
   });
@@ -838,9 +905,14 @@ function renderHomeCalendar(){
 
   const today    = new Date(); today.setHours(0,0,0,0);
   const todayStr = todayISO();
-  const fromDate = new Date(today); fromDate.setDate(fromDate.getDate() - 31);
+  const daysBack = calExpanded ? 30 : 6;  // include oggi → 7 o 31 totali
+  const fromDate = new Date(today); fromDate.setDate(fromDate.getDate() - daysBack);
 
-  let html = '';
+  let html = `<button class="cal-load-more" onclick="toggleCalExpand()">${
+    calExpanded
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>Hide previous days'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Load previous days'
+  }</button>`;
   let lastMonth = -1;
   const cur = new Date(fromDate);
   while(cur <= today){
@@ -880,6 +952,21 @@ function renderHomeCalendar(){
     if(t) t.scrollIntoView({block:'center', behavior:'instant'});
     else window.scrollTo({top: document.body.scrollHeight});
   }, 30);
+}
+
+function toggleCalExpand(){
+  calExpanded = !calExpanded;
+  renderHomeCalendar();
+  setTimeout(() => {
+    if(calExpanded){
+      // Appena espanso: scrolla in cima per vedere i giorni più vecchi
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    } else {
+      // Compresso: torna su oggi
+      const t = document.querySelector('.cal-item.today');
+      if(t) t.scrollIntoView({block: 'center', behavior: 'smooth'});
+    }
+  }, 60);
 }
 
 /* ─── INTERAZIONE CALENDARIO (tap + long-press) ── */
@@ -1090,19 +1177,24 @@ function confirmEntry(){
   closePage('entPage');
 }
 
-function sendEntry(){
+async function sendEntry(){
   // Forza autosave per garantire dati persistiti
   saveFields(curTab);
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; autoSave(); }
   if(!activeRecId){ showToast('⚠️ Enter at least one value before sending'); return; }
   const id = activeRecId;
 
-  // Offline: marco il record come "in attesa di connessione" e chiudo
+  // Offline: marco come "waiting", scrivo nella IDB queue per Background Sync e chiudo
   if(!navigator.onLine){
     const rec = records.find(r => r.id === id);
     if(rec){
       rec.waitingConnection = true;
       LS.s('hm_records', records);
+      try {
+        const payload = buildPendingPayload(rec);
+        await hmPendingPut(payload);
+        await registerBgSync();
+      } catch(e){ /* IDB non disponibile: useremo solo retry on open */ }
     }
     closePage('entPage');
     showToast('📵 Saved locally — waiting for connection');
@@ -1113,7 +1205,33 @@ function sendEntry(){
   setTimeout(() => doSend(id), 220);
 }
 
-/* Auto-retry dei record in attesa quando torna la connessione */
+function buildPendingPayload(rec){
+  const sid  = user.sheetid  || user.sheetId  || '';
+  const stab = user.sheettab || user.sheetTab || '';
+  const cols = (user.columns || 'Data,Tab,EC OUT,EC IN,pH OUT,pH IN,T.IRRIG,DRAIN,%')
+                 .split(',').map(s => s.trim());
+  const tabList = getTabList();
+  const rows = tabList.map(i => {
+    const d   = rec.tabs?.[i] || {};
+    const map = {
+      'Data': rec.date, 'Tab': i,
+      'EC OUT': d.ecOut||'', 'EC IN': d.ecIn||'',
+      'pH OUT': d.phOut||'', 'pH IN': d.phIn||'',
+      'T.IRRIG': d.tIrrig||'', 'DRAIN': d.drain||'', '%': d.perc||''
+    };
+    return cols.map(c => map[c] !== undefined ? map[c] : '');
+  });
+  return {
+    id: rec.id,
+    configUrl: CONFIG_URL,
+    sheetId: sid, sheetTab: stab,
+    isEdit: !!rec.isEdit,
+    originalDate: rec.originalDate || rec.date,
+    rows
+  };
+}
+
+/* Auto-retry dei record in attesa quando torna la connessione (app aperta) */
 async function retryWaitingSends(){
   if(!user || !navigator.onLine) return;
   const waiting = records.filter(r =>
@@ -1123,6 +1241,31 @@ async function retryWaitingSends(){
     rec.waitingConnection = false;
     LS.s('hm_records', records);
     await doSend(rec.id);
+    try { await hmPendingDelete(rec.id); } catch(e){}
+  }
+}
+
+/* All'apertura: rimuovi dal locale i record che il SW ha già inviato in background */
+async function reconcilePendingFromSW(){
+  if(!user) return;
+  const waiting = records.filter(r =>
+    r.waitingConnection && r.username === user.username
+  );
+  let changed = false;
+  for(const rec of waiting){
+    try {
+      const stillPending = await hmPendingHas(rec.id);
+      if(!stillPending){
+        // SW l'ha inviato e rimosso dalla queue → rimuovo dal locale
+        records = records.filter(r => r.id !== rec.id);
+        changed = true;
+      }
+    } catch(e){}
+  }
+  if(changed){
+    LS.s('hm_records', records);
+    if(user) refreshRemoteCache().then(() => renderHomeCalendar());
+    else renderHomeCalendar();
   }
 }
 
@@ -1471,6 +1614,16 @@ if('serviceWorker' in navigator){
     if(_swReloaded) return;
     _swReloaded = true;
     window.location.reload();
+  });
+  // Messaggi dal SW (es. "ho completato un invio in background")
+  navigator.serviceWorker.addEventListener('message', e => {
+    const m = e.data || {};
+    if(m.type === 'hm-sent' && m.id){
+      records = records.filter(r => r.id !== m.id);
+      LS.s('hm_records', records);
+      refreshRemoteCache().then(() => renderHomeCalendar());
+      showToast('✅ Sent in background!');
+    }
   });
 }
 
