@@ -227,7 +227,8 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
               border:1px solid var(--bd);box-shadow:var(--sh);}
 .page-section-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;
                   text-transform:uppercase;color:var(--tx2);margin-bottom:8px;}
-.page-section .nb{padding:0;}
+.page-section .nb{padding:6px 2px;overflow-x:auto;overflow-y:visible;}
+.page-section .nb::-webkit-scrollbar{display:none;}
 .page-section .fg{margin:11px 0;}
 .page-section .fg:first-child{margin-top:0;}
 .page-section .fg input{font-size:16px;padding:12px 14px;}  /* iOS no zoom on focus */
@@ -296,6 +297,10 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
            flex-shrink:0;}
 .cal-local svg{width:11px;height:11px;flex-shrink:0;
                filter:drop-shadow(0 .5px 0 rgba(255,255,255,.5));}
+.cal-local.waiting{background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                   color:#7c2d12;border:1px solid #fbbf24;
+                   box-shadow:0 1px 3px rgba(217,119,6,.25),
+                              inset 0 1px 0 rgba(255,255,255,.5);}
 .cal-legend{display:flex;justify-content:center;gap:14px;padding:8px 14px 12px;
             border-top:1px solid var(--bd);font-size:11px;color:var(--tx2);font-weight:600;
             flex-wrap:wrap;flex-shrink:0;}
@@ -306,15 +311,16 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .cd.r{background:#fca5a5;border:1.5px solid var(--r);}
 
 /* NUM BAR */
-.nb{display:flex;gap:7px;padding:8px 15px 8px;overflow-x:auto;scrollbar-width:none;}
+.nb{display:flex;gap:8px;padding:8px 4px;overflow-x:auto;scrollbar-width:none;}
 .nb::-webkit-scrollbar{display:none;}
-.nbb{min-width:36px;height:36px;border-radius:50%;border:2px solid;
+.nbb{min-width:38px;height:38px;border-radius:50%;border:2px solid;
      font-size:13px;font-weight:700;cursor:pointer;
      display:flex;align-items:center;justify-content:center;
-     flex-shrink:0;transition:all .15s;font-family:var(--fnt);}
+     flex-shrink:0;transition:background .15s, border-color .15s, color .15s;
+     font-family:var(--fnt);background:var(--card);}
 .nbb.e{background:var(--r-lt);color:var(--r);border-color:#fca5a5;}
 .nbb.f{background:var(--g-lt);color:var(--g-dk);border-color:#86efac;}
-.nbb.act{box-shadow:0 0 0 3px rgba(45,138,78,.3);transform:scale(1.1);}
+.nbb.act{border-color:var(--g-dk);box-shadow:0 0 0 3px rgba(45,138,78,.25);}
 
 /* FORM */
 .fb{padding:0 15px;}
@@ -327,6 +333,19 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .fg input:focus{border-color:var(--g);background:#fff;}
 .fg input[readonly]{background:#e5e7eb;color:var(--tx2);cursor:not-allowed;}
 .fg input[readonly]:focus{border-color:var(--bd);background:#e5e7eb;}
+
+/* Hide date picker indicator (campo readonly = display only) */
+.fg input[type="date"]{appearance:none;-webkit-appearance:none;
+                       background-image:none;}
+.fg input[type="date"]::-webkit-calendar-picker-indicator{
+  display:none;-webkit-appearance:none;opacity:0;}
+.fg input[type="date"]::-webkit-inner-spin-button,
+.fg input[type="date"]::-webkit-clear-button{display:none;}
+
+/* Allineamento perfetto EC IN/OUT, pH IN/OUT, ecc.: input ancorato in basso */
+.fr{display:flex;gap:10px;align-items:stretch;}
+.fr > .fg{flex:1;display:flex;flex-direction:column;margin:9px 0;}
+.fr > .fg input{margin-top:auto;}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
 /* PASSWORD FIELD con occhio */
@@ -597,8 +616,10 @@ async function init(){
   setupCalendarInteractions();
   renderHomeCalendar();
   checkOnline();
-  window.addEventListener('online',  () => { checkOnline(); triggerSync(); refreshRemoteCache(); });
-  window.addEventListener('offline', () => checkOnline());
+  window.addEventListener('online',  () => {
+    checkOnline(); triggerSync(); refreshRemoteCache(); retryWaitingSends();
+  });
+  window.addEventListener('offline', () => { checkOnline(); updateOfflineUI(); });
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'visible' && user && navigator.onLine) refreshRemoteCache();
   });
@@ -638,6 +659,7 @@ async function refreshRemoteCache(){
 
 function checkOnline(){
   document.getElementById('offlineBanner').classList.toggle('show', !navigator.onLine);
+  updateOfflineUI();
 }
 
 /* ─── JSONP helper ──────────────────────────── */
@@ -833,7 +855,12 @@ function renderHomeCalendar(){
     const dayName = dayNames[cur.getDay()];
     const isToday = dStr === todayStr;
     const status  = getDateStatus(dStr);
-    const localTag = hasUnsentLocal(dStr) ? `<span class="cal-local">${ARR_SVG}Unsent</span>` : '';
+    const lr = getLocalRec(dStr);
+    const localTag = lr
+      ? (lr.waitingConnection
+          ? `<span class="cal-local waiting">${ARR_SVG}Waiting for connection</span>`
+          : `<span class="cal-local">${ARR_SVG}Unsent</span>`)
+      : '';
     const cls = ['cal-item'];
     if(isToday) cls.push('today');
     html += `<div class="${cls.join(' ')}" data-date="${dStr}">
@@ -932,6 +959,10 @@ function getDateStatus(dStr){
 function hasUnsentLocal(dStr){
   if(!user) return false;
   return !!records.find(r => r.username === user.username && r.date === dStr);
+}
+function getLocalRec(dStr){
+  if(!user) return null;
+  return records.find(r => r.username === user.username && r.date === dStr) || null;
 }
 
 async function pickDate(dStr){
@@ -1046,7 +1077,13 @@ async function doDeleteAllForDate(){
 }
 
 function goBackToCal(){
-  closePage('entPage');  // chiude entry (autosave + toast); home calendario sempre visibile sotto
+  // Se la tastiera è aperta (input ha focus), prima la chiudo
+  const a = document.activeElement;
+  if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && a.closest('.page')){
+    a.blur();
+    return;
+  }
+  closePage('entPage');
 }
 
 function confirmEntry(){
@@ -1059,10 +1096,34 @@ function sendEntry(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; autoSave(); }
   if(!activeRecId){ showToast('⚠️ Enter at least one value before sending'); return; }
   const id = activeRecId;
-  const isEdit = !!records.find(r => r.id === id)?.isEdit;
-  // Chiudo entry e poi avvio invio
+
+  // Offline: marco il record come "in attesa di connessione" e chiudo
+  if(!navigator.onLine){
+    const rec = records.find(r => r.id === id);
+    if(rec){
+      rec.waitingConnection = true;
+      LS.s('hm_records', records);
+    }
+    closePage('entPage');
+    showToast('📵 Saved locally — waiting for connection');
+    return;
+  }
+
   closePage('entPage');
   setTimeout(() => doSend(id), 220);
+}
+
+/* Auto-retry dei record in attesa quando torna la connessione */
+async function retryWaitingSends(){
+  if(!user || !navigator.onLine) return;
+  const waiting = records.filter(r =>
+    r.waitingConnection && r.username === user.username && !r.sent
+  );
+  for(const rec of waiting){
+    rec.waitingConnection = false;
+    LS.s('hm_records', records);
+    await doSend(rec.id);
+  }
 }
 
 function openEntry(id, prefillDate, remoteData){
@@ -1105,6 +1166,7 @@ function openEntry(id, prefillDate, remoteData){
     setSaveState('idle');
   }
   document.getElementById('btnDel').style.display = '';
+  updateOfflineUI();
   // Update send button text (Send / Send edit)
   const isEditing = !!remoteData || !!(id && records.find(r => r.id === id)?.isEdit);
   document.getElementById('btnSendTxt').textContent = isEditing ? 'Send edit' : 'Send';
@@ -1238,18 +1300,35 @@ function setActive(idx){
 }
 
 FIDS.forEach(id => {
-  document.getElementById(id).addEventListener('input', () => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
     if(id === 'fTir' || id === 'fDrn') calcPerc();
     saveFields(curTab); refreshBar(); scheduleAutoSave();
+  });
+  // Quando l'input prende focus (tastiera mobile aperta) lo porto in vista
+  el.addEventListener('focus', () => {
+    setTimeout(() => {
+      el.scrollIntoView({block:'center', behavior:'smooth'});
+    }, 320);
   });
 });
 document.getElementById('fDate').addEventListener('change', scheduleAutoSave);
 
 /* ─── DELETE ────────────────────────────────── */
 function askDel(){
+  if(!navigator.onLine){
+    showToast('📵 Delete only available online');
+    return;
+  }
   // Se non c'è ancora nulla da eliminare, chiudo soltanto
   if(!activeRecId){ closePage('entPage'); return; }
   openOv('ovDel');
+}
+
+function updateOfflineUI(){
+  // Disabilita visivamente i bottoni che richiedono connessione
+  const btnDel = document.getElementById('btnDel');
+  if(btnDel) btnDel.disabled = !navigator.onLine;
 }
 function doDel(){
   if(activeRecId){
