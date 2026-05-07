@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -192,9 +192,66 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .btn-back svg{width:20px;height:20px;}
 .btn-back:active{transform:scale(.92);}
 
-/* TAB LABEL */
+/* TAB LABEL (legacy, kept for safety) */
 .tab-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
          color:var(--tx2);padding:14px 15px 0;}
+
+/* FULL-SCREEN PAGE (entry editor) */
+.page{position:fixed;inset:0;z-index:300;background:var(--bg);
+      display:flex;flex-direction:column;
+      visibility:hidden;opacity:0;transform:translateX(8%);
+      transition:transform .3s cubic-bezier(.32,.72,0,1),
+                 opacity .25s, visibility .25s;
+      pointer-events:none;}
+.page.on{visibility:visible;opacity:1;transform:translateX(0);pointer-events:auto;}
+.page-hd{position:sticky;top:0;z-index:5;
+         background:var(--g-dk);color:#fff;
+         padding:0 14px;height:var(--hh);
+         display:flex;align-items:center;gap:12px;
+         box-shadow:0 2px 10px rgba(0,0,0,.18);
+         padding-top:env(safe-area-inset-top);
+         box-sizing:content-box;height:var(--hh);}
+.page-back{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.14);
+           border:none;cursor:pointer;color:#fff;flex-shrink:0;
+           display:flex;align-items:center;justify-content:center;
+           transition:transform .15s, background .15s;}
+.page-back svg{width:20px;height:20px;}
+.page-back:active{transform:scale(.92);background:rgba(255,255,255,.25);}
+.page-tit{flex:1;font-size:16px;font-weight:800;text-align:center;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.page-hd .save-chip{flex-shrink:0;}
+.page-body{flex:1;overflow-y:auto;padding:14px 14px 110px;
+           -webkit-overflow-scrolling:touch;}
+.page-section{background:var(--card);border-radius:var(--rad);
+              padding:12px 14px 14px;margin-bottom:12px;
+              border:1px solid var(--bd);box-shadow:var(--sh);}
+.page-section-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;
+                  text-transform:uppercase;color:var(--tx2);margin-bottom:8px;}
+.page-section .nb{padding:0;}
+.page-section .fg{margin:11px 0;}
+.page-section .fg:first-child{margin-top:0;}
+.page-section .fg input{font-size:16px;padding:12px 14px;}  /* iOS no zoom on focus */
+.page-section .fr{gap:10px;}
+.page-ft{position:fixed;bottom:0;left:0;right:0;z-index:6;
+         background:var(--card);border-top:1px solid var(--bd);
+         padding:10px 14px calc(10px + env(safe-area-inset-bottom)) 14px;
+         display:flex;gap:10px;
+         box-shadow:0 -2px 12px rgba(0,0,0,.06);}
+.page-ft .btn{flex:1;}
+.page-ft .btn{flex-direction:column;gap:1px;padding:9px 10px;min-height:54px;}
+
+/* Save chip variant for dark header */
+.page-hd .save-chip.idle{color:rgba(255,255,255,.5);}
+
+/* Desktop: page con larghezza limitata e centrata */
+@media (min-width: 768px){
+  .page{align-items:stretch;}
+  .page-body{max-width:760px;width:100%;margin:0 auto;padding:18px 24px 120px;}
+  .page-ft{padding-left:24px;padding-right:24px;}
+  .page-ft > *{max-width:760px;}
+  .page-ft{justify-content:center;}
+  .page-ft > .btn{max-width:calc(380px - 12px);}
+}
 
 /* CALENDAR — lista verticale inline in homepage */
 .home-cal{background:var(--card);border-radius:var(--rad);overflow:hidden;
@@ -372,11 +429,11 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 
 <!-- MAIN -->
 <div class="main">
-  <div class="offline-banner" id="offlineBanner">📵 Offline — uso ultima configurazione salvata</div>
+  <div class="offline-banner" id="offlineBanner">📵 Offline — using last saved config</div>
   <div class="home-cal" id="homeCal"></div>
   <div class="empty" id="emptyState">
     <div class="empty-ic">🔑</div>
-    <p>Fai login per vedere<br>il calendario delle rilevazioni.</p>
+    <p>Log in to see<br>your records calendar.</p>
   </div>
 </div>
 
@@ -394,13 +451,13 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 <div class="ov" id="ovLg">
   <div class="pp m">
     <div class="pp-hd">
-      <span class="pp-tit">🔑 Accesso</span>
+      <span class="pp-tit">🔑 Sign in</span>
       <button class="btn-x" onclick="closeOv('ovLg')">✕</button>
     </div>
     <div class="fb" style="padding-top:14px">
       <div class="fg">
         <label>Username</label>
-        <input id="liU" type="text" autocomplete="username" placeholder="Il tuo username"
+        <input id="liU" type="text" autocomplete="username" placeholder="Your username"
                onfocus="kbUp()" onblur="kbDown()">
       </div>
       <div class="fg">
@@ -413,92 +470,91 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
       </div>
       <div id="liErr" style="display:none;color:var(--r);font-size:13px;margin-top:8px;
            padding:9px 11px;background:var(--r-lt);border-radius:8px;border:1px solid #fca5a5;">
-        ⚠️ Username o password non corretti.
+        ⚠️ Wrong username or password.
       </div>
     </div>
-    <!-- bottoni: Esci (solo se loggato) + Accedi -->
     <div class="fa" id="lgBtns">
-      <button class="btn btn-d" id="btnLogout" onclick="doLogout()" style="display:none;">🚪 Esci</button>
-      <button class="btn btn-p" onclick="doLogin()">Accedi</button>
+      <button class="btn btn-d" id="btnLogout" onclick="doLogout()" style="display:none;">🚪 Logout</button>
+      <button class="btn btn-p" onclick="doLogin()">Sign in</button>
     </div>
   </div>
 </div>
 
-<!-- ══ OVERLAY ELIMINA TUTTO IL GIORNO ══ -->
+<!-- ══ DELETE ALL FOR DATE ══ -->
 <div class="ov c" id="ovDelDate">
   <div class="dlg">
-    <h3>⚠️ Elimina tutte le rilevazioni</h3>
-    <p>Vuoi eliminare tutte le rilevazioni per <strong id="delDateLbl">questa data</strong>?<br>L'operazione cancella sia in locale sia sul foglio Google.</p>
+    <h3>⚠️ Delete all records</h3>
+    <p>Delete every record for <strong id="delDateLbl">this date</strong>?<br>This will remove them both locally and from the database.</p>
     <div class="dlg-row">
-      <button class="btn btn-s" onclick="closeOv('ovDelDate')">Annulla</button>
-      <button class="btn btn-d" onclick="doDeleteAllForDate()">Elimina</button>
+      <button class="btn btn-s" onclick="closeOv('ovDelDate')">Cancel</button>
+      <button class="btn btn-d" onclick="doDeleteAllForDate()">Delete</button>
     </div>
   </div>
 </div>
 
-<!-- ══ OVERLAY CONFERMA MODIFICA REMOTO ══ -->
+<!-- ══ CONFIRM EDIT REMOTE ══ -->
 <div class="ov c" id="ovEditAsk">
   <div class="dlg">
-    <h3>✏️ Modifica rilevazione inviata</h3>
-    <p>Esiste già una rilevazione inviata al database per questa data. Vuoi modificarla?</p>
+    <h3>✏️ Edit submitted record</h3>
+    <p>A record for this date already exists in the database. Do you want to edit it?</p>
     <div class="dlg-row">
-      <button class="btn btn-s" onclick="cancelEditRemote()">Annulla</button>
-      <button class="btn btn-p" onclick="confirmEditRemote()">Modifica</button>
+      <button class="btn btn-s" onclick="cancelEditRemote()">Cancel</button>
+      <button class="btn btn-p" onclick="confirmEditRemote()">Edit</button>
     </div>
   </div>
 </div>
 
-<!-- ══ OVERLAY ENTRY ══ -->
-<div class="ov" id="ovEnt">
-  <div class="pp">
-    <div class="pp-hd pp-hd-c">
-      <button class="btn-back" onclick="goBackToCal()" aria-label="Indietro">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="pp-hd-l">
-        <span class="pp-tit" id="entTit">Nuova rilevazione</span>
-      </div>
-      <span class="save-chip idle" id="saveChip"></span>
+<!-- ══ ENTRY PAGE (full-screen) ══ -->
+<div class="page" id="entPage">
+  <div class="page-hd">
+    <button class="page-back" onclick="goBackToCal()" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="page-tit" id="entTit">New record</span>
+    <span class="save-chip idle" id="saveChip"></span>
+  </div>
+  <div class="page-body">
+    <div class="page-section">
+      <div class="page-section-lbl">Sectors</div>
+      <div class="nb" id="numBar"></div>
     </div>
-    <div class="tab-lbl">Settori</div>
-    <div class="nb" id="numBar"></div>
-    <div class="fb">
-      <div class="fg"><label>Data</label><input type="date" id="fDate" readonly></div>
+    <div class="page-section">
+      <div class="fg"><label>Date</label><input type="date" id="fDate" readonly></div>
       <div class="fr">
-        <div class="fg"><label>EC IN</label> <input type="number" step="0.01" id="fEcI"></div>
-        <div class="fg"><label>EC OUT</label><input type="number" step="0.01" id="fEcO"></div>
+        <div class="fg"><label>EC IN</label> <input type="number" inputmode="decimal" step="0.01" id="fEcI"></div>
+        <div class="fg"><label>EC OUT</label><input type="number" inputmode="decimal" step="0.01" id="fEcO"></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>pH IN</label> <input type="number" step="0.01" id="fPhI"></div>
-        <div class="fg"><label>pH OUT</label><input type="number" step="0.01" id="fPhO"></div>
+        <div class="fg"><label>pH IN</label> <input type="number" inputmode="decimal" step="0.01" id="fPhI"></div>
+        <div class="fg"><label>pH OUT</label><input type="number" inputmode="decimal" step="0.01" id="fPhO"></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>T. IRRIG °C</label><input type="number" step="0.1"  id="fTir"></div>
-        <div class="fg"><label>DRAIN</label>       <input type="number" step="0.01" id="fDrn"></div>
+        <div class="fg"><label>Irrig. T. °C</label><input type="number" inputmode="decimal" step="0.1"  id="fTir"></div>
+        <div class="fg"><label>Drain</label>       <input type="number" inputmode="decimal" step="0.01" id="fDrn"></div>
       </div>
       <div class="fg"><label>% Drain (auto)</label><input type="number" step="0.1" id="fPrc" readonly></div>
     </div>
-    <div class="fa fa-dual">
-      <button class="btn btn-d" id="btnDel" onclick="askDel()">
-        <span class="btn-main">Cancella</span>
-        <span class="btn-sub">da locale</span>
-      </button>
-      <button class="btn btn-p" id="btnSend" onclick="sendEntry()">
-        <span class="btn-main" id="btnSendTxt">Invia</span>
-        <span class="btn-sub">a database</span>
-      </button>
-    </div>
+  </div>
+  <div class="page-ft">
+    <button class="btn btn-d" id="btnDel" onclick="askDel()">
+      <span class="btn-main">Discard</span>
+      <span class="btn-sub">from local</span>
+    </button>
+    <button class="btn btn-p" id="btnSend" onclick="sendEntry()">
+      <span class="btn-main" id="btnSendTxt">Send</span>
+      <span class="btn-sub">to database</span>
+    </button>
   </div>
 </div>
 
 <!-- ══ OVERLAY CONFIRM DELETE ══ -->
 <div class="ov c" id="ovDel">
   <div class="dlg">
-    <h3>⚠️ Conferma eliminazione</h3>
-    <p>Stai per eliminare questa rilevazione dal dispositivo. L'operazione non è reversibile.</p>
+    <h3>⚠️ Confirm deletion</h3>
+    <p>You're about to delete this record from your device. This action cannot be undone.</p>
     <div class="dlg-row">
-      <button class="btn btn-s" onclick="closeOv('ovDel')">Annulla</button>
-      <button class="btn btn-d" onclick="doDel()">Elimina</button>
+      <button class="btn btn-s" onclick="closeOv('ovDel')">Cancel</button>
+      <button class="btn btn-d" onclick="doDel()">Delete</button>
     </div>
   </div>
 </div>
@@ -608,26 +664,26 @@ async function triggerSync(){
   const cached = LS.g('hm_cfg');
 
   if(!navigator.onLine){
-    if(!cached) showSync('err','📵 Offline — nessuna config');
+    if(!cached) showSync('err','📵 Offline — no config');
     else { showSync('err','📵 Offline'); setTimeout(hideSync, 3000); }
     return;
   }
   if(cached && (Date.now() - last) < SYNC_MS) return;
 
-  showSync('spin-it','<span class="sp">⟳</span> Sync…');
+  showSync('spin-it','<span class="sp">⟳</span> Syncing…');
   const data = await jsonpCall(CONFIG_URL + '?action=getConfig', 12000);
 
   if(data && data.users){
     LS.s('hm_cfg', data);
     LS.s('hm_sync_ts', Date.now());
-    showSync('ok','✓ Config aggiornata');
+    showSync('ok','✓ Config updated');
     setTimeout(hideSync, 2500);
     if(user){
       const fresh = data.users.find(u => u.username === user.username);
       if(fresh){ user = fresh; LS.s('hm_user', fresh); }
     }
   } else {
-    showSync('err','⚠️ Sync fallito');
+    showSync('err','⚠️ Sync failed');
     setTimeout(hideSync, 4000);
   }
 }
@@ -675,7 +731,7 @@ function doLogin(){
   const p = document.getElementById('liP').value;
   const cache = LS.g('hm_cfg');
   if(!cache || !cache.users || !cache.users.length){
-    showToast('⚠️ Config non ancora caricata — riprova');
+    showToast('⚠️ Config not loaded yet — try again');
     closeOv('ovLg'); return;
   }
   const found = cache.users.find(x => x.username === u && x.password === p);
@@ -684,7 +740,7 @@ function doLogin(){
     LS.s('hm_user', found);
     applyLogin();
     closeOv('ovLg');
-    showToast('✅ Benvenuto, ' + u + '!');
+    showToast('✅ Welcome, ' + u + '!');
     renderHomeCalendar();
     refreshRemoteCache();
   } else {
@@ -704,7 +760,7 @@ function doLogout(){
   document.getElementById('lgLabel').textContent = 'Login';
   closeOv('ovLg');
   renderHomeCalendar();
-  showToast('Disconnesso');
+  showToast('Logged out');
 }
 
 const SVG_EYE_ON  = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -752,10 +808,10 @@ function renderHomeCalendar(){
   list.style.display = '';
   empty.style.display = 'none';
 
-  const months = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
-                  'luglio','agosto','settembre','ottobre','novembre','dicembre'];
-  const dayNames = ['dom','lun','mar','mer','gio','ven','sab'];
-  const statusLbl = { g:'Completo', o:'Parziale', r:'Vuoto' };
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const statusLbl = { g:'Filled', o:'Partial', r:'Empty' };
   const ARR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
 
   const today    = new Date(); today.setHours(0,0,0,0);
@@ -777,13 +833,13 @@ function renderHomeCalendar(){
     const dayName = dayNames[cur.getDay()];
     const isToday = dStr === todayStr;
     const status  = getDateStatus(dStr);
-    const localTag = hasUnsentLocal(dStr) ? `<span class="cal-local">${ARR_SVG}Da inviare</span>` : '';
+    const localTag = hasUnsentLocal(dStr) ? `<span class="cal-local">${ARR_SVG}Unsent</span>` : '';
     const cls = ['cal-item'];
     if(isToday) cls.push('today');
     html += `<div class="${cls.join(' ')}" data-date="${dStr}">
       <div class="cal-dot ${status}"></div>
       <div class="cal-day-num">${d}</div>
-      <div class="cal-day-name">${dayName}${isToday ? '<span class="tdy">• oggi</span>' : ''}</div>
+      <div class="cal-day-name">${dayName}${isToday ? '<span class="tdy">• today</span>' : ''}</div>
       ${localTag}
       <div class="cal-pill ${status}">${statusLbl[status]}</div>
     </div>`;
@@ -879,7 +935,7 @@ function hasUnsentLocal(dStr){
 }
 
 async function pickDate(dStr){
-  if(!user){ showToast('⚠️ Fai login prima'); return; }
+  if(!user){ showToast('⚠️ Sign in first'); return; }
   // Record locale già esistente -> apro in modifica (funziona offline)
   const local = records.find(r => r.username === user.username && r.date === dStr);
   if(local){
@@ -899,15 +955,15 @@ async function pickDate(dStr){
 
   // Dato remoto: la modifica richiede connessione e dati freschi dal foglio
   if(!navigator.onLine){
-    showToast('📵 Modifica disponibile solo online');
+    showToast('📵 Editing available only online');
     return;
   }
 
-  showBusy('🔍 Carico dati dal foglio…');
+  showBusy('🔍 Loading data from database…');
   const fresh = await fetchSingleDay(dStr);
   hideBusy();
   if(!fresh){
-    showToast('⚠️ Impossibile caricare i dati — riprova');
+    showToast('⚠️ Could not load data — try again');
     return;
   }
   pendingEditDate = dStr;
@@ -963,11 +1019,11 @@ async function doDeleteAllForDate(){
 
   if(hadRemote){
     if(!navigator.onLine){
-      showToast('📵 Offline: eliminato solo locale');
+      showToast('📵 Offline: removed locally only');
       renderHomeCalendar();
       return;
     }
-    showBusy('🗑 Cancello dal foglio…');
+    showBusy('🗑 Deleting from database…');
     const sid  = user.sheetid  || user.sheetId  || '';
     const stab = user.sheettab || user.sheetTab || '';
     const payload = encodeURIComponent(JSON.stringify({
@@ -976,41 +1032,41 @@ async function doDeleteAllForDate(){
     const res = await jsonpCall(CONFIG_URL + '?action=updateRecord&data=' + payload, 15000);
     hideBusy();
     if(res?.ok){
-      showToast('✅ Eliminate ' + (res.deleted || 0) + ' righe');
+      showToast('✅ Deleted ' + (res.deleted || 0) + ' rows');
       await refreshRemoteCache();
     } else {
-      showToast('❌ ' + (res?.error || 'Errore'));
+      showToast('❌ ' + (res?.error || 'Error'));
     }
   } else if(hadLocal){
-    showToast('🗑 Eliminato dal locale');
+    showToast('🗑 Deleted locally');
   } else {
-    showToast('Nulla da eliminare');
+    showToast('Nothing to delete');
   }
   renderHomeCalendar();
 }
 
 function goBackToCal(){
-  closeOv('ovEnt');  // chiude entry (autosave + toast); home calendario sempre visibile sotto
+  closePage('entPage');  // chiude entry (autosave + toast); home calendario sempre visibile sotto
 }
 
 function confirmEntry(){
-  closeOv('ovEnt');
+  closePage('entPage');
 }
 
 function sendEntry(){
   // Forza autosave per garantire dati persistiti
   saveFields(curTab);
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; autoSave(); }
-  if(!activeRecId){ showToast('⚠️ Inserisci almeno un dato prima di inviare'); return; }
+  if(!activeRecId){ showToast('⚠️ Enter at least one value before sending'); return; }
   const id = activeRecId;
   const isEdit = !!records.find(r => r.id === id)?.isEdit;
   // Chiudo entry e poi avvio invio
-  closeOv('ovEnt');
+  closePage('entPage');
   setTimeout(() => doSend(id), 220);
 }
 
 function openEntry(id, prefillDate, remoteData){
-  if(!user){ showToast('⚠️ Fai login prima'); return; }
+  if(!user){ showToast('⚠️ Sign in first'); return; }
 
   // Se è una nuova rilevazione su oggi senza prefill, e ne esiste già una in locale, apro quella
   if(!id && !prefillDate && !remoteData){
@@ -1028,8 +1084,8 @@ function openEntry(id, prefillDate, remoteData){
   buildNumBar(tabs);
 
   if(remoteData){
-    // Pre-compila da cache remota (modifica record già inviato)
-    document.getElementById('entTit').textContent = 'Modifica rilevazione inviata';
+    // Pre-fill from remote cache (edit submitted record)
+    document.getElementById('entTit').textContent = 'Edit submitted record';
     document.getElementById('fDate').value = prefillDate;
     Object.entries(remoteData.tabs || {}).forEach(([i, d]) => {
       tempTabs[i] = {...d};
@@ -1038,22 +1094,22 @@ function openEntry(id, prefillDate, remoteData){
     setSaveState('saved');
   } else if(id){
     const rec = records.find(r => r.id === id);
-    document.getElementById('entTit').textContent = rec?.isEdit ? 'Modifica rilevazione inviata' : 'Modifica rilevazione';
+    document.getElementById('entTit').textContent = rec?.isEdit ? 'Edit submitted record' : 'Edit record';
     document.getElementById('fDate').value = rec?.date || todayISO();
     curTab = tabs.includes(rec?.activeTab) ? rec.activeTab : tabs[0];
     tabs.forEach(i => { if(rec?.tabs?.[i]) tempTabs[i] = {...rec.tabs[i]}; });
     setSaveState('saved');
   } else {
-    document.getElementById('entTit').textContent = 'Nuova rilevazione';
+    document.getElementById('entTit').textContent = 'New record';
     document.getElementById('fDate').value = prefillDate || todayISO();
     setSaveState('idle');
   }
   document.getElementById('btnDel').style.display = '';
-  // Aggiorna testo bottone invio (Invia / Invia modifica)
+  // Update send button text (Send / Send edit)
   const isEditing = !!remoteData || !!(id && records.find(r => r.id === id)?.isEdit);
-  document.getElementById('btnSendTxt').textContent = isEditing ? 'Invia modifica' : 'Invia';
+  document.getElementById('btnSendTxt').textContent = isEditing ? 'Send edit' : 'Send';
   loadFields(curTab); refreshBar(); setActive(curTab);
-  openOv('ovEnt');
+  openPage('entPage');
 }
 
 function setSaveState(state){
@@ -1062,10 +1118,10 @@ function setSaveState(state){
   chip.classList.remove('editing','saved','idle');
   if(state === 'editing'){
     chip.classList.add('editing');
-    chip.textContent = '● Modifica…';
+    chip.textContent = '● Editing…';
   } else if(state === 'saved'){
     chip.classList.add('saved');
-    chip.textContent = '✓ Salvato';
+    chip.textContent = '✓ Saved';
   } else {
     chip.classList.add('idle');
     chip.textContent = '';
@@ -1192,7 +1248,7 @@ document.getElementById('fDate').addEventListener('change', scheduleAutoSave);
 /* ─── DELETE ────────────────────────────────── */
 function askDel(){
   // Se non c'è ancora nulla da eliminare, chiudo soltanto
-  if(!activeRecId){ closeOv('ovEnt'); return; }
+  if(!activeRecId){ closePage('entPage'); return; }
   openOv('ovDel');
 }
 function doDel(){
@@ -1203,9 +1259,9 @@ function doDel(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   activeRecId = null; editId = null; tempTabs = {};
   document.getElementById('ovDel').classList.remove('on');
-  document.getElementById('ovEnt').classList.remove('on');
+  document.getElementById('entPage').classList.remove('on');
   renderHomeCalendar();
-  showToast('🗑 Eliminata');
+  showToast('🗑 Deleted');
 }
 
 function fmtD(d){
@@ -1221,14 +1277,14 @@ function fmtD(d){
 const _sending = new Set();
 async function doSend(id){
   if(_sending.has(id)) return;
-  if(!user){ showToast('⚠️ Fai login prima'); return; }
-  if(!navigator.onLine){ showToast('📵 Nessuna connessione'); return; }
+  if(!user){ showToast('⚠️ Sign in first'); return; }
+  if(!navigator.onLine){ showToast('📵 No connection'); return; }
 
   const rec  = records.find(r => r.id === id);
   if(!rec || rec.sent) return;
 
   _sending.add(id);
-  showBusy(rec.isEdit ? '📤 Aggiornamento…' : '📤 Invio…');
+  showBusy(rec.isEdit ? '📤 Updating…' : '📤 Sending…');
 
   try {
     const sid  = user.sheetid  || user.sheetId  || '';
@@ -1236,7 +1292,7 @@ async function doSend(id){
     const cols = (user.columns || 'Data,Tab,EC OUT,EC IN,pH OUT,pH IN,T.IRRIG,DRAIN,%')
                    .split(',').map(s => s.trim());
 
-    if(!sid || !stab){ showToast('⚠️ sheetId o sheetTab mancanti nel config'); return; }
+    if(!sid || !stab){ showToast('⚠️ sheetId or sheetTab missing in config'); return; }
 
     const tabList = getTabList();
     const rows    = tabList.map(i => {
@@ -1252,8 +1308,7 @@ async function doSend(id){
 
     let result;
     if(rec.isEdit){
-      // ── Aggiorna record già nel foglio ─────────
-      showToast('📤 Aggiornamento in corso…');
+      // ── Update existing database record ────────
       const payload = encodeURIComponent(JSON.stringify({
         sheetId: sid, sheetTab: stab,
         date: rec.originalDate || rec.date,
@@ -1261,21 +1316,16 @@ async function doSend(id){
       }));
       result = await jsonpCall(CONFIG_URL + '?action=updateRecord&data=' + payload, 20000);
     } else {
-      // ── Controllo duplicato ONLINE ─────────────
-      showToast('🔍 Verifico duplicati sul foglio…');
+      // ── Online duplicate check ─────────────────
       const checkUrl  = CONFIG_URL + '?action=checkDate&sheetId=' + encodeURIComponent(sid)
                       + '&sheetTab=' + encodeURIComponent(stab)
                       + '&date=' + encodeURIComponent(rec.date);
       const chk = await jsonpCall(checkUrl, 10000);
       if(chk && chk.exists){
-        showToast('⚠️ Esiste già una rilevazione per ' + fmtD(rec.date) + ' nel foglio!');
+        showToast('⚠️ A record for ' + fmtD(rec.date) + ' already exists in the database!');
         return;
       }
-      if(chk && chk.error && chk.error !== 'not_found'){
-        showToast('⚠️ Impossibile verificare duplicati — procedo comunque');
-      }
-      // ── Invio righe ───────────────────────────
-      showToast('📤 Invio in corso…');
+      // ── Send rows ─────────────────────────────
       const payload = encodeURIComponent(JSON.stringify({ sheetId: sid, sheetTab: stab, rows }));
       result = await jsonpCall(CONFIG_URL + '?action=appendData&data=' + payload, 20000);
     }
@@ -1285,9 +1335,9 @@ async function doSend(id){
       LS.s('hm_records', records);
       await refreshRemoteCache();
       renderHomeCalendar();
-      showToast(rec.isEdit ? '✅ Aggiornato!' : '✅ Inviato!');
+      showToast(rec.isEdit ? '✅ Updated!' : '✅ Sent!');
     } else {
-      showToast('❌ ' + (result?.error || 'Errore sconosciuto'));
+      showToast('❌ ' + (result?.error || 'Unknown error'));
     }
   } finally {
     _sending.delete(id);
@@ -1295,20 +1345,23 @@ async function doSend(id){
   }
 }
 
-/* ─── OVERLAY HELPERS ───────────────────────── */
+/* ─── OVERLAY / PAGE HELPERS ────────────────── */
 function openOv(id)  { document.getElementById(id).classList.add('on'); }
 function closeOv(id) {
   document.getElementById(id).classList.remove('on');
-  if(id === 'ovEnt'){
-    // Flush eventuale auto-save in attesa
+  if(id === 'ovLg')  kbDown();
+}
+function openPage(id){ document.getElementById(id).classList.add('on'); }
+function closePage(id){
+  document.getElementById(id).classList.remove('on');
+  if(id === 'entPage'){
     if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; autoSave(); }
     const saved = !!activeRecId;
     activeRecId = null; editId = null; tempTabs = {};
     isRemoteEdit = false; remoteEditOrigDate = null;
     renderHomeCalendar();
-    if(saved) showToast('✅ Salvato');
+    if(saved) showToast('✅ Saved');
   }
-  if(id === 'ovLg')  kbDown();
 }
 document.querySelectorAll('.ov').forEach(o => {
   o.addEventListener('click', e => { if(e.target === o) closeOv(o.id); });
