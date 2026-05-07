@@ -216,6 +216,16 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .cal-pill.g{background:var(--g-lt);color:var(--g-dk);}
 .cal-pill.o{background:var(--am-lt);color:#92400e;}
 .cal-pill.r{background:var(--r-lt);color:var(--r);}
+.cal-local{display:inline-flex;align-items:center;gap:4px;
+           font-size:10px;font-weight:800;padding:4px 10px 4px 8px;
+           border-radius:12px;letter-spacing:.04em;text-transform:uppercase;
+           background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+           color:#1e3a8a;border:1px solid #93c5fd;
+           box-shadow:0 1px 3px rgba(37,99,235,.22),
+                      inset 0 1px 0 rgba(255,255,255,.5);
+           flex-shrink:0;}
+.cal-local svg{width:11px;height:11px;flex-shrink:0;
+               filter:drop-shadow(0 .5px 0 rgba(255,255,255,.5));}
 .cal-legend{display:flex;justify-content:center;gap:14px;padding:8px 14px 12px;
             border-top:1px solid var(--bd);font-size:11px;color:var(--tx2);font-weight:600;
             flex-wrap:wrap;flex-shrink:0;}
@@ -751,10 +761,14 @@ function renderCalendar(){
     if(isToday) cls.push('today');
 
     const click = isOld ? '' : ` onclick="pickDate('${dStr}')"`;
+    const localTag = hasUnsentLocal(dStr)
+      ? '<span class="cal-local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>Da inviare</span>'
+      : '';
     html += `<div class="${cls.join(' ')}"${click}>
       <div class="cal-dot ${status}"></div>
       <div class="cal-day-num">${d}</div>
       <div class="cal-day-name">${dayName}${isToday ? '<span class="tdy">• oggi</span>' : ''}</div>
+      ${localTag}
       <div class="cal-pill ${status}">${statusLbl[status]}</div>
     </div>`;
     count++;
@@ -776,20 +790,20 @@ function renderCalendar(){
 }
 
 function getDateStatus(dStr){
+  // Colore basato SOLO sul foglio remoto (i dati locali sono "non inviati")
   if(!user) return 'r';
   const tabs = getTabList();
-  // 1) Record locale (non ancora inviato)
-  const local = records.find(r => r.username === user.username && r.date === dStr);
-  if(local){
-    return tabs.every(i => isFilled(local.tabs?.[i])) ? 'g' : 'o';
-  }
-  // 2) Cache remota
   const cache = LS.g('hm_remote_cache');
   if(cache && cache.username === user.username && cache.records?.[dStr]){
     const rec = cache.records[dStr];
     return tabs.every(i => isFilled(rec.tabs?.[i])) ? 'g' : 'o';
   }
   return 'r';
+}
+
+function hasUnsentLocal(dStr){
+  if(!user) return false;
+  return !!records.find(r => r.username === user.username && r.date === dStr);
 }
 
 async function pickDate(dStr){
