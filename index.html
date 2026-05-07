@@ -67,7 +67,25 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 .btn-lg:active{transform:scale(.95);}
 
 /* MAIN */
-.main{padding:calc(var(--hh) + 12px) 13px 96px;}
+.main{padding:calc(var(--hh) + 12px) 13px 96px;max-width:760px;
+      margin:0 auto;}
+
+/* HEADER su grandi schermi: contenuti centrati */
+@media (min-width: 768px){
+  .hdr{padding:0 24px;}
+  .logo-txt{font-size:18px;}
+  .main{padding-top:calc(var(--hh) + 18px);padding-left:24px;padding-right:24px;
+        padding-bottom:60px;}
+  .home-cal{border-radius:18px;box-shadow:0 4px 20px rgba(0,0,0,.08);}
+  .cal-item{padding:15px 18px;gap:14px;}
+  .cal-day-num{font-size:18px;min-width:30px;}
+  .cal-day-name{font-size:14px;}
+  .cal-month-hd{padding:14px 18px 10px;font-size:13px;}
+}
+@media (min-width: 1024px){
+  .main{max-width:820px;}
+  .cal-item{padding:16px 22px;}
+}
 
 /* OFFLINE BANNER */
 .offline-banner{background:var(--am-lt);border:1px solid #fcd34d;border-radius:10px;
@@ -295,6 +313,20 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
        white-space:nowrap;max-width:90vw;text-align:center;}
 .toast.on{opacity:1;}
 
+/* BUSY OVERLAY (blocca i click durante operazioni di rete) */
+.busy-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;
+         display:flex;align-items:center;justify-content:center;
+         visibility:hidden;opacity:0;pointer-events:none;
+         transition:opacity .18s, visibility .18s;}
+.busy-ov.on{visibility:visible;opacity:1;pointer-events:auto;}
+.busy-card{background:#fff;padding:18px 24px;border-radius:14px;
+           display:flex;align-items:center;gap:14px;font-weight:700;
+           font-size:14px;color:var(--tx);
+           box-shadow:0 10px 36px rgba(0,0,0,.3);}
+.busy-spin{width:22px;height:22px;border:3px solid var(--bd);
+           border-top-color:var(--g);border-radius:50%;
+           animation:spin 1s linear infinite;flex-shrink:0;}
+
 /* LOGIN OVERLAY — sempre sopra centro, sale di più con tastiera */
 #ovLg{align-items:center;justify-content:center;}
 #ovLg .pp.m{
@@ -349,6 +381,14 @@ body{font-family:var(--fnt);background:var(--bg);color:var(--tx);}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- BUSY OVERLAY -->
+<div class="busy-ov" id="busyOv">
+  <div class="busy-card">
+    <div class="busy-spin"></div>
+    <span id="busyMsg">Attendi…</span>
+  </div>
+</div>
 
 <!-- ══ OVERLAY LOGIN ══ -->
 <div class="ov" id="ovLg">
@@ -763,6 +803,15 @@ function renderHomeCalendar(){
 let lpTimer = null;
 let lpItem  = null;
 let lpFired = false;
+let lpStartX = 0, lpStartY = 0;
+const LP_MOVE_THRESHOLD = 15;  // px di movimento tollerati prima di cancellare
+
+function suppressNextClicks(ms){
+  // Mangia ogni click che arriva entro 'ms' (sia synth dopo touchend, sia bubble dell'overlay)
+  const handler = e => { e.preventDefault(); e.stopPropagation(); };
+  document.addEventListener('click', handler, true);
+  setTimeout(() => document.removeEventListener('click', handler, true), ms);
+}
 
 function setupCalendarInteractions(){
   const list = document.getElementById('homeCal');
@@ -779,23 +828,35 @@ function setupCalendarInteractions(){
     if(!item || item.classList.contains('dis')) return;
     lpFired = false;
     lpItem  = item;
+    lpStartX = e.clientX;
+    lpStartY = e.clientY;
     lpTimer = setTimeout(() => {
       lpFired = true;
       if(navigator.vibrate) navigator.vibrate(45);
       item.classList.add('lp');
+      suppressNextClicks(450);  // evita che il click sintetico chiuda il popup
       askDeleteAllForDate(item.dataset.date);
       setTimeout(() => item.classList.remove('lp'), 350);
+      lpTimer = null;
     }, 600);
   });
+
+  list.addEventListener('pointermove', e => {
+    if(!lpTimer) return;
+    const dx = Math.abs(e.clientX - lpStartX);
+    const dy = Math.abs(e.clientY - lpStartY);
+    if(dx > LP_MOVE_THRESHOLD || dy > LP_MOVE_THRESHOLD) cancel();
+  });
+
   list.addEventListener('pointerup',     cancel);
   list.addEventListener('pointercancel', cancel);
   list.addEventListener('pointerleave',  cancel);
-  list.addEventListener('pointermove',   cancel);
+  list.addEventListener('contextmenu', e => e.preventDefault());
 
   list.addEventListener('click', e => {
+    if(lpFired){ lpFired = false; e.preventDefault(); e.stopPropagation(); return; }
     const item = e.target.closest('.cal-item');
     if(!item || item.classList.contains('dis')) return;
-    if(lpFired){ lpFired = false; e.preventDefault(); e.stopPropagation(); return; }
     pickDate(item.dataset.date);
   });
 }
@@ -842,8 +903,9 @@ async function pickDate(dStr){
     return;
   }
 
-  showToast('🔍 Carico dati dal foglio…');
+  showBusy('🔍 Carico dati dal foglio…');
   const fresh = await fetchSingleDay(dStr);
+  hideBusy();
   if(!fresh){
     showToast('⚠️ Impossibile caricare i dati — riprova');
     return;
@@ -905,13 +967,14 @@ async function doDeleteAllForDate(){
       renderHomeCalendar();
       return;
     }
-    showToast('🗑 Cancello dal foglio…');
+    showBusy('🗑 Cancello dal foglio…');
     const sid  = user.sheetid  || user.sheetId  || '';
     const stab = user.sheettab || user.sheetTab || '';
     const payload = encodeURIComponent(JSON.stringify({
       sheetId: sid, sheetTab: stab, date: dStr, rows: []
     }));
     const res = await jsonpCall(CONFIG_URL + '?action=updateRecord&data=' + payload, 15000);
+    hideBusy();
     if(res?.ok){
       showToast('✅ Eliminate ' + (res.deleted || 0) + ' righe');
       await refreshRemoteCache();
@@ -1165,11 +1228,7 @@ async function doSend(id){
   if(!rec || rec.sent) return;
 
   _sending.add(id);
-  const lockBtns = () => document.querySelectorAll(`button[data-send="${id}"]`)
-                          .forEach(b => b.disabled = true);
-  const unlockBtns = () => document.querySelectorAll(`button[data-send="${id}"]`)
-                          .forEach(b => b.disabled = false);
-  lockBtns();
+  showBusy(rec.isEdit ? '📤 Aggiornamento…' : '📤 Invio…');
 
   try {
     const sid  = user.sheetid  || user.sheetId  || '';
@@ -1229,10 +1288,10 @@ async function doSend(id){
       showToast(rec.isEdit ? '✅ Aggiornato!' : '✅ Inviato!');
     } else {
       showToast('❌ ' + (result?.error || 'Errore sconosciuto'));
-      unlockBtns();
     }
   } finally {
     _sending.delete(id);
+    hideBusy();
   }
 }
 
@@ -1260,6 +1319,15 @@ function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('on');
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3200);
+}
+
+/* ─── BUSY OVERLAY ─────────────────────────── */
+function showBusy(msg){
+  document.getElementById('busyMsg').textContent = msg || 'Attendi…';
+  document.getElementById('busyOv').classList.add('on');
+}
+function hideBusy(){
+  document.getElementById('busyOv').classList.remove('on');
 }
 
 /* ─── SERVICE WORKER ────────────────────────── */
