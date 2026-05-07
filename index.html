@@ -1265,6 +1265,13 @@ function showToast(msg){
 /* ─── SERVICE WORKER ────────────────────────── */
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  // Reload automatico quando un SW nuovo prende il controllo (post-deploy)
+  let _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(_swReloaded) return;
+    _swReloaded = true;
+    window.location.reload();
+  });
 }
 
 init();
